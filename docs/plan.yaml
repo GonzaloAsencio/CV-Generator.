@@ -1,0 +1,1054 @@
+# ================================================================
+# CV TAILOR AI — Plan técnico v2.1 (refinado)
+# ================================================================
+# Cambios v2.1 vs v2.0:
+#   - Arquitectura ports/adapters/use-cases (SOLID real, no decorativo)
+#   - F09 (historial) movido a post-MVP → 4 sprints en vez de 5
+#   - F03 simplificada: un formulario de empresa por generación, sin CRUD
+#   - pdf-parse → unpdf (compatible con Vercel serverless)
+#   - uuid-ossp → pgcrypto
+#   - ivfflat index diferido hasta que haya volumen
+#   - NEXTAUTH_SECRET eliminado (Supabase Auth ya lo maneja)
+#   - Rate limiting, idempotencia y tabla llm_calls añadidos
+#   - Validación de output del LLM con Zod + retry tolerante
+#   - TDD reformulado a ciclos cortos (no "tests-first batching")
+#   - Vercel Hobby: maxDuration explícito por endpoint
+# ================================================================
+
+
+# ────────────────────────────────────────────────────────────────
+# 0. METODOLOGÍA
+# ────────────────────────────────────────────────────────────────
+metodologia:
+
+  enfoque: SDD + TDD + SOLID
+
+  spec_driven_development:
+    descripcion: >
+      Este archivo es la spec viva del proyecto. Cada feature define
+      input, output, errores y criterios ANTES de implementar.
+      El contrato Zod del input/output es la spec ejecutable.
+    flujo:
+      1_spec: Actualizar el YAML con la spec de la feature
+      2_zod: Definir el Zod schema del input/output (eso compila la spec)
+      3_review: Validar que la spec es coherente con specs existentes
+      4_code: Implementar siguiendo TDD
+      5_validate: Cada API route valida con Zod en runtime
+    reglas:
+      - Si cambia el comportamiento, se actualiza la spec primero
+      - El Zod schema y el YAML deben mantenerse en sync
+      - Un test que rompe la spec significa que algo está mal — el test, el código o la spec
+
+  test_driven_development:
+    descripcion: >
+      Ciclos cortos Red → Green → Refactor. NO escribir todos los tests
+      por adelantado: un test, código mínimo, refactor, siguiente test.
+    ciclo_estandar:
+      tiempo_max_por_ciclo: 15 minutos
+      red: Escribir UN test que describe el siguiente comportamiento (debe fallar)
+      green: Código mínimo para que pase ese test (hardcodeos permitidos)
+      refactor: Eliminar duplicación cuando hay 2-3 tests verdes
+    cuando_aplicar_tdd:
+      siempre: Use cases, parsers, validadores, lógica de negocio
+      a_veces: Componentes UI con lógica compleja (custom hooks)
+      no_aplica: Mappers triviales, getters, boilerplate de framework
+    cuando_te_cuesta_escribir_el_test:
+      diagnostico: Casi siempre es señal de acoplamiento alto
+      accion: Volver al diseño de ports antes de seguir
+    herramientas:
+      unit_y_integration: Vitest (más rápido y nativo a ESM que Jest)
+      e2e: Playwright
+      api_mocking: msw para mocks de Gemini en tests
+      coverage: c8 (integrado en Vitest)
+    convenciones:
+      archivo_test: "{nombre}.test.ts" junto al fuente
+      archivo_e2e: "tests/e2e/{flow}.spec.ts"
+      cobertura_minima: 80% en use-cases y parsers (no en API routes ni adapters)
+      naming: "describe('UseCase') > it('should X when Y')"
+
+  solid:
+    descripcion: >
+      SOLID se aplica vía arquitectura ports/adapters. Las interfaces (ports)
+      viven en lib/ports/. Las implementaciones concretas (adapters) en
+      lib/adapters/. La lógica de negocio (use-cases) depende solo de ports.
+    principios_aplicados:
+      srp: Cada use-case hace UNA cosa. lib/rag.ts NO existe — se descompone.
+      ocp: Cambiar de Gemini a Claude = nuevo adapter, cero cambios en use-cases
+      lsp: Todos los LlmProvider son intercambiables (mismos contratos de error)
+      isp: Ports chicos y enfocados (CvRepository != CompanyRepository)
+      dip: API routes dependen de ports inyectados, nunca del SDK directamente
+
+  orden_por_feature:
+    1: Actualizar spec en este YAML
+    2: Definir Zod schemas (input/output)
+    3: Identificar ports nuevos o existentes que necesita
+    4: Ciclo TDD por unidad chica (red/green/refactor cada 10-15 min)
+    5: Test de integración con Supabase local + Gemini real
+    6: Manual QA en preview
+    7: Merge a main si todo verde
+
+
+# ────────────────────────────────────────────────────────────────
+# 1. ALCANCE MVP
+# ────────────────────────────────────────────────────────────────
+mvp:
+  descripcion: >
+    Web app que toma un CV en PDF + una oferta + datos de empresa y
+    devuelve un CV adaptado en formato Harvard (PDF) y un speech técnico
+    de 2-3 minutos personalizado. Uso personal, free tier, sin pagos.
+
+  objetivo: >
+    CV Harvard + speech técnico personalizados en menos de 45s,
+    listos para enviar.
+
+  fuera_de_scope_mvp:
+    - Editor visual de CV
+    - Múltiples CVs base por usuario
+    - Integraciones con LinkedIn / portales
+    - App móvil
+    - Plan de pagos
+    - Simulación de entrevista
+    - Historial / CRUD de empresas (movido a post-MVP)
+
+  post_mvp_backlog:
+    - F09: Historial de aplicaciones
+    - F03b: CRUD completo de empresas con reuso
+    - Editor inline del CV generado antes de descargar
+    - Versionado de CVs generados
+
+  funcionalidades:
+
+    F01:
+      nombre: Carga de CV
+      prioridad: MUST
+      historia: >
+        Como usuario, subo mi CV en PDF y el sistema lo procesa
+        para usarlo de base en futuras generaciones.
+      criterios:
+        - Acepta PDF de hasta 5MB
+        - Extrae texto correctamente
+        - Reemplaza el CV anterior si existe
+        - Confirmación con cantidad de chunks generados
+      spec_api: POST /api/upload
+
+    F02:
+      nombre: Vectorización del CV (RAG)
+      prioridad: MUST
+      historia: >
+        Como sistema, convierto el CV en chunks vectoriales para
+        recuperar contexto relevante en cada generación.
+      criterios:
+        - Chunks de ~500 tokens con 50 de overlap
+        - Embeddings con text-embedding-004 (768 dims, dimensionalidad explícita)
+        - Almacenados en pgvector
+        - Procesamiento en menos de 15s para CV de 2 páginas
+      nota_tecnica: >
+        outputDimensionality se fija explícitamente a 768 al llamar al
+        embedding API para evitar romper si Google cambia el default.
+
+    F03:
+      nombre: Datos de empresa por generación (simplificado MVP)
+      prioridad: MUST
+      historia: >
+        Como usuario, completo los datos de la empresa al momento de
+        generar el CV para personalizar el resultado a su contexto.
+      criterios_mvp:
+        - Formulario inline al generar (no CRUD separado)
+        - Campos requerido name, opcionales industry, tech_stack, culture, notes
+        - Se guarda como snapshot junto al CV generado
+        - Sin reuso entre generaciones (eso queda para post-MVP)
+      razon_simplificacion: >
+        El CRUD completo de empresas con autocomplete agrega 5-7h de trabajo
+        que no aporta valor en el MVP de uso personal — un dev sabe de memoria
+        a qué empresa aplicó.
+
+    F04:
+      nombre: Input de oferta
+      prioridad: MUST
+      criterios:
+        - Textarea con mínimo 100 caracteres
+        - Botón "Generar" deshabilitado si falta CV o oferta o nombre de empresa
+        - Idempotency-Key generado en el cliente para evitar doble submit
+
+    F05:
+      nombre: Generación de CV Harvard (RAG + LLM)
+      prioridad: MUST
+      criterios:
+        - Top-6 chunks por similarity search
+        - Prompt incluye datos de empresa
+        - Output JSON validado con Zod schema Harvard
+        - Si el LLM devuelve JSON inválido reintenta UNA vez con el error como input
+        - Si falla el reintento devuelve 422 con detalle
+        - Generación menor a 30 segundos
+      spec_api: POST /api/generate
+
+    F06:
+      nombre: Template Harvard (PDF)
+      prioridad: MUST
+      criterios:
+        - Tipografía serif (Times New Roman / Georgia)
+        - Solo blanco y negro
+        - Márgenes 1 pulgada
+        - Máximo 2 páginas
+        - Nombre archivo CV_Harvard_{Nombre}_{Empresa}.pdf
+
+    F07:
+      nombre: Speech técnico personalizado
+      prioridad: MUST
+      criterios:
+        - 350-450 palabras
+        - 4 secciones (introduction, motivation, technical_skills, value_proposition)
+        - Mínimo 2 menciones del nombre de la empresa
+        - Mínimo 1 referencia al tech stack provisto
+        - Idioma matchea el de la oferta
+        - Output validado con Zod
+        - Botón copiar y descargar .txt
+      spec_api: POST /api/speech
+
+    F08:
+      nombre: Auth con Google (Supabase Auth)
+      prioridad: MUST
+      criterios:
+        - OAuth Google vía Supabase
+        - Sesión persistente
+        - RLS aislando datos por user_id
+        - Logout funcional
+
+
+# ────────────────────────────────────────────────────────────────
+# 2. ARQUITECTURA (SOLID — ports / adapters / use-cases)
+# ────────────────────────────────────────────────────────────────
+arquitectura:
+
+  patron: Monolito modular con clean architecture interna
+
+  estructura_carpetas:
+    app/:
+      layout.tsx: Layout global con SupabaseProvider
+      "page.tsx": Landing
+      dashboard/page.tsx: Panel principal
+      generate/page.tsx: Flujo completo (empresa + oferta + generar)
+      "api/":
+        upload/route.ts: Recibe PDF
+        generate/route.ts: Genera CV
+        speech/route.ts: Genera speech
+        health/route.ts: Health check
+
+    components/:
+      ui/: shadcn/ui base
+      cv-upload-form.tsx: Drag & drop + validación
+      generate-form.tsx: Formulario inline (empresa + oferta)
+      cv-preview.tsx: Preview del CV generado
+      cv-download-button.tsx: Descarga PDF
+      speech-display.tsx: Speech con copy/download
+
+    lib/:
+      ports/:
+        descripcion: Interfaces — la lógica de negocio depende solo de esto
+        archivos:
+          llm-provider.ts: "interface LlmProvider { complete(opts): Promise<LlmResult> }"
+          embedding-provider.ts: "interface EmbeddingProvider { embed(text): Promise<number[]> }"
+          cv-repository.ts: "interface CvRepository { saveChunks, findRelevantChunks, deleteForUser }"
+          generation-repository.ts: "interface GenerationRepository { saveCv, saveSpeech }"
+          pdf-extractor.ts: "interface PdfExtractor { extractText(buffer): Promise<string> }"
+          rate-limiter.ts: "interface RateLimiter { check(userId, action): Promise<boolean> }"
+
+      adapters/:
+        descripcion: Implementaciones concretas — el SDK vive solo acá
+        archivos:
+          gemini-llm.ts: implements LlmProvider
+          gemini-embeddings.ts: implements EmbeddingProvider
+          supabase-cv-repository.ts: implements CvRepository
+          supabase-generation-repository.ts: implements GenerationRepository
+          unpdf-extractor.ts: implements PdfExtractor (NO usa pdf-parse)
+          upstash-rate-limiter.ts: implements RateLimiter (con Upstash free tier)
+          memory-rate-limiter.ts: implementación in-memory para tests locales
+
+      use-cases/:
+        descripcion: Lógica de negocio pura. Recibe ports inyectados. Cero IO directo.
+        archivos:
+          upload-cv.ts: Recibe PDF, extrae, chunkea, embeddea, guarda
+          generate-tailored-cv.ts: RAG + LLM + parse + persist
+          generate-speech.ts: RAG + LLM + parse + persist
+
+      schemas/:
+        descripcion: Zod schemas — la spec ejecutable
+        archivos:
+          harvard-cv.schema.ts: Estructura del CV Harvard
+          speech.schema.ts: Estructura del speech
+          api-inputs.schema.ts: Validación de inputs de cada route
+
+      composition/:
+        descripcion: Wiring — el único lugar que sabe qué adapter va con qué port
+        archivos:
+          container.ts: Factory que arma use-cases con sus adapters
+          test-container.ts: Versión con mocks para tests
+
+      utils/:
+        chunker.ts: RecursiveCharacterTextSplitter wrapper
+        prompt-builder.ts: Templates con interpolación segura
+        idempotency.ts: Cache de Idempotency-Key con TTL
+
+    templates/:
+      harvard-cv.tsx: "@react-pdf/renderer template"
+
+    tests/:
+      unit/: Tests unitarios (mocks de ports)
+      integration/: Tests con Supabase local + Gemini real (modo "live")
+      e2e/: Playwright (solo flujos críticos)
+
+  ejemplo_flujo_post_generate:
+    1: API route recibe request, valida con Zod
+    2: API route obtiene Idempotency-Key del header, chequea cache
+    3: API route consulta RateLimiter — si falla, 429
+    4: API route arma container y resuelve GenerateTailoredCvUseCase
+    5: UseCase pide a EmbeddingProvider el vector de la oferta
+    6: UseCase pide a CvRepository los top-6 chunks relevantes
+    7: UseCase arma prompt con prompt-builder
+    8: UseCase llama a LlmProvider.complete()
+    9: UseCase parsea con Zod schema Harvard. Si falla reintenta 1 vez
+    10: UseCase pide a GenerationRepository persistir el resultado
+    11: UseCase devuelve el CV. API route lo serializa y responde
+
+  por_que_esta_arquitectura:
+    - Tests unitarios SIN red ni DB ni API key (mockeás los ports)
+    - Cambiar Gemini por Claude solo toca un archivo en adapters/
+    - El "qué hace el sistema" vive en use-cases, no enredado en routes
+    - Las routes son delgadas (parse → autorize → call use-case → respond)
+
+
+# ────────────────────────────────────────────────────────────────
+# 3. API ROUTES (specs detalladas)
+# ────────────────────────────────────────────────────────────────
+api:
+
+  comunes:
+    auth: Todas las routes (excepto /health) validan sesión Supabase
+    headers_requeridos:
+      Idempotency-Key: UUID del cliente (en /generate y /speech)
+    rate_limit:
+      generate: 10 requests / hora / user
+      speech: 10 requests / hora / user
+      upload: 5 requests / hora / user
+    error_format:
+      shape: "{ error: { code: string, message: string, details?: any } }"
+      codigos:
+        VALIDATION_ERROR: 400
+        UNAUTHORIZED: 401
+        NOT_FOUND: 404
+        RATE_LIMIT: 429
+        LLM_INVALID_OUTPUT: 422
+        UPSTREAM_TIMEOUT: 504
+        INTERNAL: 500
+
+  POST_api_upload:
+    timeout_seg: 60
+    nota_vercel: maxDuration explícito en route.ts
+    input:
+      content_type: multipart/form-data
+      cv: File (PDF, max 5MB)
+    output_200:
+      success: true
+      chunks: integer
+    pasos:
+      1: Validar archivo con Zod (tipo + size)
+      2: PdfExtractor.extractText(buffer) — usa unpdf, NO pdf-parse
+      3: chunker.split(text)
+      4: CvRepository.deleteForUser(userId)
+      5: EmbeddingProvider.embedBatch(chunks) en batches de 10
+      6: CvRepository.saveChunks(userId, chunksWithEmbeddings)
+      7: Storage upload del PDF original
+      8: Update user_profiles
+    errores:
+      400_no_file: "VALIDATION_ERROR — No se recibió archivo"
+      400_wrong_type: "VALIDATION_ERROR — Solo PDF"
+      400_too_big: "VALIDATION_ERROR — Max 5MB"
+      422_no_text: "Could not extract text from PDF"
+
+  POST_api_generate:
+    timeout_seg: 60
+    input:
+      content_type: application/json
+      idempotency_key: string (header)
+      jobOffer: string (min 100 chars)
+      company:
+        name: string (required)
+        industry: string (optional)
+        techStack: array of strings (optional)
+        culture: string (optional)
+        notes: string (optional)
+    output_200:
+      cv: HarvardCvSchema
+      meta:
+        chunksUsed: integer
+        topSimilarity: float
+        generationId: uuid
+    pasos:
+      1: Validar input con Zod
+      2: Chequear Idempotency-Key — si existe, devolver respuesta cacheada
+      3: RateLimiter.check(userId, "generate")
+      4: Verificar que el usuario tiene CV cargado (404 si no)
+      5: EmbeddingProvider.embed(jobOffer)
+      6: CvRepository.findRelevantChunks(userId, vector, top=6, threshold=0.65)
+      7: prompt = buildHarvardPrompt(chunks, company, jobOffer)
+      8: result = await LlmProvider.complete(prompt)
+      9: parsed = HarvardCvSchema.safeParse(result)
+      10: Si parse falla — UNA reintento con el error en el prompt
+      11: Si reintento falla — 422
+      12: GenerationRepository.saveCv(userId, parsed, company, meta)
+      13: Cachear bajo Idempotency-Key con TTL 5min
+      14: Responder
+    errores:
+      404_no_cv: "No hay CV cargado"
+      422_invalid_json: "El modelo no devolvió JSON válido"
+      429_rate_limit: "Demasiadas generaciones — esperá X minutos"
+
+  POST_api_speech:
+    timeout_seg: 45
+    input:
+      idempotency_key: string (header)
+      jobOffer: string
+      company: same shape as generate
+      generatedCvId: uuid (opcional — para vincular)
+    output_200:
+      speech:
+        full_text: string
+        sections:
+          introduction: string
+          motivation: string
+          technical_skills: string
+          value_proposition: string
+        word_count: integer
+        estimated_duration_minutes: float
+      meta:
+        speechId: uuid
+    pasos:
+      identico_a_generate_pero_con_prompt_de_speech: true
+      validacion_extra:
+        - word_count entre 350 y 450
+        - sections.motivation incluye company.name
+        - si techStack provisto al menos 1 mención
+
+  GET_api_health:
+    auth: público
+    output_200:
+      status: ok
+      version: package.json version
+      db: ok | degraded
+
+
+# ────────────────────────────────────────────────────────────────
+# 4. BASE DE DATOS
+# ────────────────────────────────────────────────────────────────
+db:
+  provider: Supabase (Postgres 15)
+
+  extensiones_requeridas:
+    - vector
+    - pgcrypto
+
+  tablas:
+
+    user_profiles:
+      columnas:
+        user_id: uuid PK FK auth.users(id) ON DELETE CASCADE
+        cv_uploaded_at: timestamptz NULL
+        cv_chunks_count: integer DEFAULT 0
+        cv_storage_path: text NULL
+        updated_at: timestamptz DEFAULT now()
+      rls:
+        all: "auth.uid() = user_id"
+
+    cv_chunks:
+      columnas:
+        id: uuid PK DEFAULT gen_random_uuid()
+        user_id: uuid FK auth.users(id) ON DELETE CASCADE
+        content: text NOT NULL
+        embedding: vector(768) NOT NULL
+        chunk_index: integer NOT NULL
+        created_at: timestamptz DEFAULT now()
+      indices:
+        idx_cv_chunks_user_id: btree(user_id)
+        idx_cv_chunks_embedding: >
+          DIFERIDO — no crear hasta que la tabla tenga >5000 filas.
+          En MVP con 20-30 chunks por usuario el seq scan es más rápido.
+          Cuando se cree usar HNSW (mejor que ivfflat para datasets chicos):
+          CREATE INDEX ON cv_chunks USING hnsw (embedding vector_cosine_ops)
+      rls:
+        all: "auth.uid() = user_id"
+
+    generated_cvs:
+      columnas:
+        id: uuid PK DEFAULT gen_random_uuid()
+        user_id: uuid FK auth.users(id) ON DELETE CASCADE
+        company_snapshot: jsonb NOT NULL
+          # Snapshot de los datos de empresa al momento de generar
+          # { name, industry, techStack[], culture, notes }
+        job_offer_snippet: text NOT NULL
+        cv_data: jsonb NOT NULL
+        chunks_used: integer
+        top_similarity: float
+        idempotency_key: text NULL
+        created_at: timestamptz DEFAULT now()
+      indices:
+        idx_user_created: btree(user_id, created_at DESC)
+        unique_idempotency: "UNIQUE(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL"
+      rls:
+        select_insert: "auth.uid() = user_id"
+
+    generated_speeches:
+      columnas:
+        id: uuid PK DEFAULT gen_random_uuid()
+        user_id: uuid FK auth.users(id) ON DELETE CASCADE
+        company_snapshot: jsonb NOT NULL
+        generated_cv_id: uuid FK generated_cvs(id) ON DELETE SET NULL NULL
+        speech_data: jsonb NOT NULL
+        idempotency_key: text NULL
+        created_at: timestamptz DEFAULT now()
+      indices:
+        unique_idempotency: "UNIQUE(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL"
+      rls:
+        select_insert: "auth.uid() = user_id"
+
+    llm_calls:
+      descripcion: >
+        Audit log de cada llamada al LLM. Crítico para debugging de prompts
+        y para identificar respuestas inválidas que requieren ajuste.
+      columnas:
+        id: uuid PK DEFAULT gen_random_uuid()
+        user_id: uuid FK auth.users(id) ON DELETE CASCADE
+        kind: text CHECK kind IN ('cv', 'speech')
+        prompt: text NOT NULL
+        response: text NULL
+        parsed_ok: boolean NOT NULL
+        retry_count: integer DEFAULT 0
+        latency_ms: integer NOT NULL
+        error: text NULL
+        created_at: timestamptz DEFAULT now()
+      retencion: 30 días (cron job para borrar viejos)
+      rls:
+        select: "auth.uid() = user_id"
+        insert: "auth.uid() = user_id"
+
+  funciones_sql:
+    match_cv_chunks:
+      descripcion: Similarity search por usuario
+      sql: |
+        CREATE OR REPLACE FUNCTION match_cv_chunks(
+          query_embedding vector(768),
+          match_threshold float,
+          match_count int,
+          p_user_id uuid
+        )
+        RETURNS TABLE (id uuid, content text, similarity float)
+        LANGUAGE sql STABLE
+        AS $$
+          SELECT id, content,
+                 1 - (embedding <=> query_embedding) AS similarity
+          FROM cv_chunks
+          WHERE user_id = p_user_id
+            AND 1 - (embedding <=> query_embedding) > match_threshold
+          ORDER BY embedding <=> query_embedding
+          LIMIT match_count;
+        $$;
+
+  storage:
+    bucket: cvs
+    acceso: privado
+    estructura: "{user_id}/cv-original.pdf"
+    max_file_size_mb: 5
+    tipos_permitidos: [application/pdf]
+
+
+# ────────────────────────────────────────────────────────────────
+# 5. TEMPLATE HARVARD CV
+# ────────────────────────────────────────────────────────────────
+harvard_cv:
+  spec_visual:
+    fuente: Times New Roman o Georgia (serif)
+    tamano_nombre: "18-20pt bold centrado"
+    tamano_seccion: "11-12pt bold mayúsculas"
+    tamano_cuerpo: 11pt
+    interlineado: 1.15
+    margenes: 1 pulgada
+    separadores: línea horizontal 0.5pt
+    bullets: "• o —"
+    color: solo negro sobre blanco
+    longitud_max: 2 páginas
+
+  orden_secciones:
+    1: Nombre + contacto (centrado)
+    2: Resumen profesional
+    3: Experiencia
+    4: Educación
+    5: Habilidades técnicas
+    6: Certificaciones (si hay)
+    7: Idiomas
+
+  zod_schema:
+    archivo: lib/schemas/harvard-cv.schema.ts
+    estructura:
+      personal:
+        name: string
+        email: string (email format)
+        phone: string
+        location: string
+        linkedin: string optional
+        github: string optional
+      title: string
+      summary: string (max 600 chars)
+      experience: array of
+        title: string
+        company: string
+        location: string
+        period: string
+        highlights: array of string (1-5 items)
+      education: array of
+        degree: string
+        institution: string
+        location: string
+        year: string
+        honors: string optional
+      skills:
+        technical: array of string
+        soft: array of string
+      certifications: array of string optional
+      languages: array of
+        language: string
+        level: string
+
+  reglas_contenido:
+    - Verbos de acción al inicio de cada bullet
+    - Cuantificar logros cuando sea posible
+    - Keywords de la oferta en summary y primera experiencia
+    - Máximo 5 bullets por experiencia
+    - Solo info verídica del CV original (NUNCA inventar)
+
+
+# ────────────────────────────────────────────────────────────────
+# 6. PROMPTS
+# ────────────────────────────────────────────────────────────────
+prompts:
+
+  cv_system: |
+    Sos un experto en RRHH con 15 años redactando CVs Harvard que pasan ATS.
+    Tu tarea es adaptar el CV del candidato a la oferta usando el formato Harvard.
+
+    REGLAS:
+    1. Usá keywords EXACTOS de la oferta (los ATS los matchean textualmente)
+    2. Reescribí el resumen 100% orientado al puesto
+    3. Reordenás experiencias para destacar las más relevantes primero
+    4. Bullets con verbos de acción + métricas reales del CV
+    5. Incorporás contexto de empresa (cultura, tech stack) en el tono
+    6. SOLO info verídica del CV — JAMÁS inventes
+    7. Idioma de salida = idioma de la oferta
+    8. Respondés ÚNICAMENTE con JSON válido del schema Harvard — sin markdown, sin texto extra
+
+  cv_user_template: |
+    ### CONTEXTO DE LA EMPRESA
+    Nombre: {company.name}
+    Industria: {company.industry}
+    Tech Stack: {company.techStack}
+    Cultura: {company.culture}
+    Notas: {company.notes}
+
+    ### INFO DEL CANDIDATO (RAG retrieval del CV)
+    {cv_chunks}
+
+    ### OFERTA
+    {job_offer}
+
+    Generá el CV adaptado en JSON Harvard.
+
+  cv_retry_template: |
+    Tu respuesta anterior no fue JSON válido del schema Harvard.
+    Error de validación: {validation_error}
+
+    Respondé de nuevo SOLO con el JSON correcto. Sin markdown, sin explicación.
+
+  speech_system: |
+    Sos un coach de entrevistas técnicas. Creás speeches de presentación de
+    2-3 minutos (350-450 palabras) personalizados para cada empresa.
+
+    REGLAS:
+    1. Profesional, confiado, genuino — NO robótico ni corporativo
+    2. Mencioná el nombre de la empresa al menos 2 veces
+    3. Si hay tech stack provisto, hacé al menos 1 referencia concreta
+    4. Conectá experiencia del candidato con desafíos de la empresa
+    5. Terminá con propuesta de valor concreta + pregunta al entrevistador
+    6. Idioma = idioma de la oferta
+    7. Respondés ÚNICAMENTE con JSON válido — sin markdown, sin texto extra
+
+  speech_user_template: |
+    ### EMPRESA
+    {company}
+
+    ### INFO DEL CANDIDATO
+    {cv_chunks}
+
+    ### OFERTA
+    {job_offer}
+
+    Generá el speech en JSON con: full_text, sections (introduction, motivation,
+    technical_skills, value_proposition), word_count, estimated_duration_minutes.
+
+
+# ────────────────────────────────────────────────────────────────
+# 7. CRONOGRAMA — 4 SPRINTS (8 semanas)
+# ────────────────────────────────────────────────────────────────
+cronograma:
+  duracion_sprint: 2 semanas
+  total_sprints: 4
+  duracion_total: 8 semanas
+
+  sprint_1:
+    nombre: Fundaciones + arquitectura SOLID + CI
+    semanas: "1-2"
+    objetivo: Esqueleto SOLID corriendo, auth, DB, CI verde
+    historias:
+      HU-01:
+        titulo: Setup Next.js + Vitest + estructura de carpetas SOLID
+        horas: 6
+        tdd:
+          red: "test('GET /api/health returns 200')"
+          green: Crear route /api/health
+          refactor: Configurar paths, aliases, test container
+        tareas:
+          - npx create-next-app TypeScript Tailwind
+          - shadcn/ui init
+          - Vitest + @testing-library/react + msw
+          - Playwright config
+          - Estructura lib/{ports,adapters,use-cases,schemas,composition,utils}
+          - test-container vs container
+
+      HU-02:
+        titulo: Supabase + migraciones + RLS
+        horas: 7
+        tareas:
+          - Crear proyecto Supabase
+          - Habilitar pgvector + pgcrypto
+          - Migración SQL (tablas + función match_cv_chunks)
+          - RLS policies en todas las tablas
+          - Bucket cvs privado
+          - Adapter SupabaseCvRepository con tests de integración
+
+      HU-03:
+        titulo: Auth Google OAuth + middleware
+        horas: 4
+        tdd:
+          red: "test('middleware redirects unauthenticated to /login')"
+          green: Middleware Next.js + Supabase Auth
+          refactor: Hook useUser()
+
+      HU-04:
+        titulo: CI/CD GitHub Actions + Vercel
+        horas: 3
+        tareas:
+          - Workflow lint + tsc + vitest run + build
+          - Vercel preview en cada push
+          - Vercel production en merge a main
+          - Vercel maxDuration explícito por route
+
+      HU-05:
+        titulo: Ports y schemas base
+        horas: 5
+        tareas:
+          - Definir interfaces ports/*
+          - Definir Zod schemas/*
+          - Container con adapters dummy para test
+    entregable: Vercel preview con login Google funcional, CI verde, esqueleto SOLID
+
+  sprint_2:
+    nombre: Upload + RAG funcionando end-to-end
+    semanas: "3-4"
+    objetivo: Subir PDF, vectorizar, persistir
+    historias:
+      HU-06:
+        titulo: UploadCvUseCase (TDD)
+        horas: 8
+        tdd:
+          ciclo_1: Test "extractText devuelve string del PDF" → adapter unpdf
+          ciclo_2: Test "use-case chunkea texto" → integrar chunker
+          ciclo_3: Test "use-case llama embed por chunk" → mock provider
+          ciclo_4: Test "use-case persiste con repo" → mock repo
+          ciclo_5: Test "use-case borra chunks viejos primero"
+        tareas:
+          - lib/adapters/unpdf-extractor.ts
+          - lib/adapters/gemini-embeddings.ts (con outputDimensionality 768 explícito)
+          - lib/use-cases/upload-cv.ts
+          - Tests unitarios con mocks
+          - Test integración con PDF real + Supabase local
+
+      HU-07:
+        titulo: API Route /api/upload + UI
+        horas: 6
+        tareas:
+          - Route delgada (parse + auth + use-case + respond)
+          - Validación Zod del input
+          - Componente CvUploadForm con drag & drop
+          - Loading state, error states
+          - Test e2e Playwright (upload → ver chunks count)
+
+      HU-08:
+        titulo: Rate limiter (Upstash o tabla DB)
+        horas: 4
+        tareas:
+          - Port RateLimiter
+          - Adapter Upstash Redis (free tier 10k commands/día)
+          - Adapter MemoryRateLimiter para tests
+          - Aplicar en /api/upload (5/h por user)
+    entregable: Usuario sube CV, se ven chunks en Supabase, rate limit activo
+
+  sprint_3:
+    nombre: Generación de CV Harvard + PDF
+    semanas: "5-6"
+    historias:
+      HU-09:
+        titulo: GenerateTailoredCvUseCase (TDD)
+        horas: 12
+        tdd:
+          ciclo_1: Test "embed jobOffer" → embedding port
+          ciclo_2: Test "find relevant chunks" → repo port
+          ciclo_3: Test "build prompt con company snapshot"
+          ciclo_4: Test "llama LLM y parsea JSON Harvard"
+          ciclo_5: Test "JSON inválido reintenta una vez"
+          ciclo_6: Test "reintento falla → throw LlmInvalidOutputError"
+          ciclo_7: Test "persiste con company snapshot e idempotency_key"
+        tareas:
+          - lib/adapters/gemini-llm.ts
+          - lib/utils/prompt-builder.ts
+          - lib/schemas/harvard-cv.schema.ts (Zod)
+          - lib/use-cases/generate-tailored-cv.ts
+          - Logger a tabla llm_calls
+
+      HU-10:
+        titulo: API Route /api/generate
+        horas: 5
+        tareas:
+          - Route con auth + Zod validation + idempotency check + rate limit
+          - Idempotency cache (in-memory con TTL para MVP)
+          - maxDuration = 60s
+          - Tests integración
+
+      HU-11:
+        titulo: UI generate-form + preview
+        horas: 6
+        tareas:
+          - Componente GenerateForm (empresa inline + oferta)
+          - Idempotency-Key generado en cliente
+          - Componente CvPreview con datos del JSON
+          - Loading state largo (~30s) con feedback
+
+      HU-12:
+        titulo: Template Harvard PDF
+        horas: 10
+        tareas:
+          - "@react-pdf/renderer template"
+          - Tipografía serif, márgenes 1 pulgada, separadores
+          - Test de rendering con datos mock
+          - Botón descarga con naming correcto
+    entregable: Usuario genera CV Harvard descargable
+
+  sprint_4:
+    nombre: Speech + pulido + e2e
+    semanas: "7-8"
+    historias:
+      HU-13:
+        titulo: GenerateSpeechUseCase (TDD)
+        horas: 9
+        tareas:
+          - Schema Zod del speech con validaciones custom (word_count entre 350-450)
+          - Use case con misma estructura que generate-cv
+          - Validación post-parse de menciones a empresa y tech stack
+
+      HU-14:
+        titulo: API Route /api/speech + UI
+        horas: 6
+        tareas:
+          - Route con idempotency + rate limit
+          - Componente SpeechDisplay
+          - Botón copiar al portapapeles
+          - Botón descargar .txt
+
+      HU-15:
+        titulo: E2E completos con Playwright
+        horas: 6
+        tareas:
+          - "Flow: login → upload → generar CV → descargar PDF"
+          - "Flow: generar speech → copiar"
+          - "Flow error: generar sin CV → mensaje claro"
+          - Integrar en CI
+
+      HU-16:
+        titulo: Optimización de prompts
+        horas: 8
+        tareas:
+          - Generar 10 CVs de prueba con distintas ofertas
+          - Generar 8 speeches
+          - Checklist manual de calidad
+          - Ajustar system prompts según resultados
+          - Verificar que retry de JSON inválido se dispara <5%
+
+      HU-17:
+        titulo: Pulido UX final
+        horas: 5
+        tareas:
+          - Estados de error con mensajes accionables
+          - Tooltips de ayuda
+          - Mobile responsive (desktop-first ok pero no roto en mobile)
+          - Meta tags + favicon
+    entregable: MVP usable diariamente
+
+
+# ────────────────────────────────────────────────────────────────
+# 8. TESTING
+# ────────────────────────────────────────────────────────────────
+testing:
+
+  estrategia:
+    piramide:
+      base: Unit tests de use-cases y schemas (la mayoría)
+      medio: Tests de integración con Supabase local + Gemini live
+      tope: E2E Playwright (solo flujos críticos)
+    cobertura_objetivo: 80% en use-cases y schemas
+
+  unit_tests:
+    herramienta: Vitest
+    que_testear:
+      - Cada use-case (mockeando ports)
+      - Cada Zod schema (casos válidos e inválidos)
+      - Cada parser tolerante (chunker, prompt-builder)
+      - Adapters con mocks de SDK (gemini-llm con MSW)
+    que_NO_testear:
+      - API Routes (mejor tests de integración)
+      - Componentes UI sin lógica
+      - Re-exports y mappers triviales
+
+  integration_tests:
+    herramienta: Vitest + supabase local + Gemini real
+    cuando_correr: pre-merge a main (no en cada commit por costo)
+    que_testear:
+      - Upload con PDF real → ver chunks en DB
+      - Generate con CV cargado → JSON válido
+      - Speech con company → cumple regla de menciones
+      - RLS efectivo (un usuario no ve datos de otro)
+
+  e2e_tests:
+    herramienta: Playwright
+    flujos:
+      flujo_principal:
+        - Login con Google (con cuenta de test)
+        - Upload PDF
+        - Llenar empresa + oferta
+        - Click generar
+        - Esperar preview
+        - Descargar PDF
+      flujo_speech:
+        - Tras generar CV, generar speech
+        - Verificar 4 secciones renderizadas
+        - Copiar al portapapeles
+      flujo_error:
+        - Sin CV cargado → ir a generate → mensaje "subí tu CV"
+        - PDF corrupto → mensaje claro
+
+  manual_qa_checklist_cv:
+    - El resumen menciona el cargo de la oferta
+    - Keywords de la oferta aparecen en skills/experiencia
+    - Experiencia más relevante primero
+    - NO hay info inventada (cross-check con CV original)
+    - PDF Harvard correctamente formateado
+    - Nombre de archivo correcto
+
+  manual_qa_checklist_speech:
+    - Menciona empresa al menos 2 veces
+    - Referencia tech stack al menos 1 vez
+    - 350-450 palabras
+    - Termina con pregunta
+    - Suena genuino
+
+
+# ────────────────────────────────────────────────────────────────
+# 9. ENVIRONMENT
+# ────────────────────────────────────────────────────────────────
+environment:
+  archivo: .env.local
+  variables:
+    GOOGLE_API_KEY:
+      uso: Server-side
+      obtener: aistudio.google.com/app/apikey
+    NEXT_PUBLIC_SUPABASE_URL:
+      uso: Cliente y server
+    NEXT_PUBLIC_SUPABASE_ANON_KEY:
+      uso: Cliente y server
+    SUPABASE_SERVICE_KEY:
+      uso: SOLO server. Nunca commitear.
+    UPSTASH_REDIS_REST_URL:
+      uso: Server (rate limiter)
+      opcional_en_dev: true (fallback memory)
+    UPSTASH_REDIS_REST_TOKEN:
+      uso: Server
+
+
+# ────────────────────────────────────────────────────────────────
+# 10. DEPENDENCIAS
+# ────────────────────────────────────────────────────────────────
+dependencias:
+  produccion:
+    next: ^15.0.0
+    react: ^19.0.0
+    typescript: ^5.0.0
+    tailwindcss: ^3.4.0
+    "@google/generative-ai": ^0.21.0
+    "@supabase/supabase-js": ^2.0.0
+    "@supabase/ssr": ^0.5.0
+    unpdf: ^0.12.0
+    "@react-pdf/renderer": ^3.4.0
+    zod: ^3.22.0
+    "@upstash/ratelimit": ^2.0.0
+    "@upstash/redis": ^1.34.0
+
+  desarrollo:
+    "@types/node": ^20.0.0
+    "@types/react": ^19.0.0
+    vitest: ^2.0.0
+    "@vitest/coverage-v8": ^2.0.0
+    "@testing-library/react": ^16.0.0
+    "@testing-library/jest-dom": ^6.0.0
+    msw: ^2.0.0
+    "@playwright/test": ^1.40.0
+    eslint: ^8.0.0
+    eslint-config-next: ^15.0.0
+
+  notas:
+    descartado_pdf_parse: >
+      pdf-parse tiene un bug conocido en serverless (intenta abrir un PDF
+      de prueba al cargar el módulo). unpdf funciona en Vercel sin tweaks.
+    langchain_innecesario: >
+      Para este uso (un solo prompt, una sola call al LLM), LangChain es
+      overhead. Con @google/generative-ai directo es suficiente y el
+      adapter pattern hace el wrapper trivial.
+
+
+# ────────────────────────────────────────────────────────────────
+# 11. FREE TIER LIMITS
+# ────────────────────────────────────────────────────────────────
+free_tier:
+  vercel_hobby:
+    bandwidth: 100GB/mes
+    serverless_max_duration: 60s (configurable por route)
+    ojo: Límite default es 10s — fijar maxDuration explícito
+  supabase_free:
+    db: 500MB
+    storage: 1GB
+    bandwidth: 5GB/mes
+    auth_users: 50,000 MAU
+  google_ai_free:
+    gemini_2_5_flash:
+      rpm: 10
+      rpd: 250
+    text_embedding_004:
+      rpm: 1500
+  upstash_redis_free:
+    commands_per_day: 10000
+
+  uso_previsto: <20 generaciones/día = bien dentro de límites
