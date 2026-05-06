@@ -13,6 +13,7 @@ export default defineConfig({
     env: loadEnv("test", process.cwd(), ""),
     setupFiles: ["./vitest.setup.ts"],
     include: [
+      "*.{test,spec}.{ts,tsx}",
       "app/**/*.{test,spec}.{ts,tsx}",
       "lib/**/*.{test,spec}.{ts,tsx}",
       "components/**/*.{test,spec}.{ts,tsx}",
