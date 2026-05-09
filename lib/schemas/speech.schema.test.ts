@@ -34,6 +34,7 @@ describe('SpeechSchema', () => {
   })
 
   it('should reject missing section', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { sections: { introduction: _, ...sectionsWithout } } = validSpeech
     const result = SpeechSchema.safeParse({
       ...validSpeech,

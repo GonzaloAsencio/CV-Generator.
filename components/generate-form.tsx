@@ -34,10 +34,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
   const isGenerating = state.status === 'generating'
 
   useEffect(() => {
-    if (!isGenerating) {
-      setElapsed(0)
-      return
-    }
+    if (!isGenerating) return
     const interval = setInterval(() => setElapsed((s) => s + 1), 1000)
     return () => clearInterval(interval)
   }, [isGenerating])
@@ -61,6 +58,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
       }
 
       idempotencyKeyRef.current = crypto.randomUUID()
+      setElapsed(0)
       setState({ status: 'generating' })
 
       const techStack = form.techStack
