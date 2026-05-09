@@ -94,9 +94,9 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           const code = json.error?.code
           const message =
             code === 'NOT_FOUND'
-              ? 'Primero subí tu CV para poder generar versiones adaptadas.'
+              ? 'Todavía no subiste tu CV. Subilo en la sección "Tu CV base" más arriba.'
               : code === 'RATE_LIMIT'
-                ? 'Alcanzaste el límite de generaciones. Esperá un momento.'
+                ? 'Alcanzaste el límite de generaciones. Esperá unos minutos e intentá de nuevo.'
                 : json.error?.message ?? 'Error al generar el CV. Intentá de nuevo.'
           setState({ status: 'error', message })
           return
@@ -110,7 +110,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           company: body.company,
         })
       } catch {
-        setState({ status: 'error', message: 'Error de red. Verificá tu conexión.' })
+        setState({ status: 'error', message: 'Error de red. Verificá tu conexión e intentá de nuevo.' })
       }
     },
     [form, isGenerating, onSuccess],
@@ -131,42 +131,66 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input
             type="text"
-            placeholder="Industria"
+            placeholder="Industria (ej: Fintech, E-commerce)"
             value={form.industry}
             onChange={handleField('industry')}
             disabled={isGenerating}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
           />
+          <div>
+            <FieldLabel
+              htmlFor="techStack"
+              label="Tech stack"
+              tooltip="Tecnologías de la empresa, separadas por comas. El modelo las incorporará en tu CV y speech. Ej: React, Node.js, AWS, PostgreSQL"
+            />
+            <input
+              id="techStack"
+              type="text"
+              placeholder="React, Node.js, AWS…"
+              value={form.techStack}
+              onChange={handleField('techStack')}
+              disabled={isGenerating}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            />
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel
+            htmlFor="culture"
+            label="Cultura"
+            tooltip="Valores o estilo de trabajo. Ej: 'startup ágil, trabajo remoto, product-led'. Personaliza el tono del CV."
+          />
           <input
+            id="culture"
             type="text"
-            placeholder="Tech stack (separado por comas)"
-            value={form.techStack}
-            onChange={handleField('techStack')}
+            placeholder="Startup ágil, trabajo remoto, foco en producto…"
+            value={form.culture}
+            onChange={handleField('culture')}
             disabled={isGenerating}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
           />
         </div>
 
-        <input
-          type="text"
-          placeholder="Cultura de la empresa"
-          value={form.culture}
-          onChange={handleField('culture')}
-          disabled={isGenerating}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-        />
-
-        <input
-          type="text"
-          placeholder="Notas adicionales"
-          value={form.notes}
-          onChange={handleField('notes')}
-          disabled={isGenerating}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-        />
+        <div>
+          <FieldLabel
+            htmlFor="notes"
+            label="Notas"
+            tooltip="Contexto adicional: por qué te interesa el rol, nombre del hiring manager, proyecto específico, etc."
+          />
+          <input
+            id="notes"
+            type="text"
+            placeholder="Por qué te interesa este rol, detalles del equipo…"
+            value={form.notes}
+            onChange={handleField('notes')}
+            disabled={isGenerating}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
       </fieldset>
 
       {/* Job offer */}
@@ -210,6 +234,38 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
         <p className="text-sm font-medium text-red-600">{state.message}</p>
       )}
     </form>
+  )
+}
+
+function FieldLabel({
+  htmlFor,
+  label,
+  tooltip,
+}: {
+  htmlFor: string
+  label: string
+  tooltip?: string
+}) {
+  return (
+    <div className="mb-1 flex items-center gap-1">
+      <label htmlFor={htmlFor} className="text-xs font-medium text-gray-600">
+        {label}
+      </label>
+      {tooltip && <Tooltip text={tooltip} />}
+    </div>
+  )
+}
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span title={text} className="group relative ml-0.5 inline-flex cursor-help">
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 transition-colors hover:bg-gray-300">
+        ?
+      </span>
+      <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded-lg bg-gray-900 px-2.5 py-2 text-xs leading-relaxed text-white opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+        {text}
+      </span>
+    </span>
   )
 }
 

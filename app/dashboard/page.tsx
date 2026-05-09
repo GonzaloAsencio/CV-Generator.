@@ -1,8 +1,11 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from '@/components/sign-out-button'
 import { CvUploadForm } from '@/components/cv-upload-form'
 import { GenerateSection } from '@/components/generate-section'
+
+export const metadata: Metadata = { title: 'Dashboard' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -20,16 +23,16 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="font-bold text-lg">CV Tailor AI</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">{user.email}</span>
+      <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+        <h1 className="font-bold text-lg shrink-0">CV Tailor AI</h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="hidden sm:inline text-sm text-gray-500 truncate">{user.email}</span>
           <SignOutButton />
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto p-8 space-y-10">
-        <section>
+      <div className="max-w-2xl mx-auto p-4 sm:p-8 space-y-8 sm:space-y-10">
+        <section id="cv-upload">
           <h2 className="text-xl font-semibold mb-1">Tu CV base</h2>
           {profile?.cv_uploaded_at ? (
             <p className="mb-4 text-sm text-gray-500">
