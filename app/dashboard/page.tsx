@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from '@/components/sign-out-button'
 import { CvUploadForm } from '@/components/cv-upload-form'
+import { GenerateSection } from '@/components/generate-section'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto p-8 space-y-8">
+      <div className="max-w-2xl mx-auto p-8 space-y-10">
         <section>
           <h2 className="text-xl font-semibold mb-1">Tu CV base</h2>
           {profile?.cv_uploaded_at ? (
@@ -46,6 +47,14 @@ export default async function DashboardPage() {
             </p>
           )}
           <CvUploadForm />
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-1">Generar CV adaptado</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Completá los datos de la empresa y pegá la oferta para obtener un CV Harvard personalizado.
+          </p>
+          <GenerateSection />
         </section>
       </div>
     </main>
