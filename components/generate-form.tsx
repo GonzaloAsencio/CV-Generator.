@@ -6,6 +6,7 @@ import type { HarvardCv } from '@/lib/schemas/harvard-cv.schema'
 export interface GenerateResult {
   cv: HarvardCv
   meta: { chunksUsed: number; topSimilarity: number; generationId: string }
+  companyName: string
 }
 
 type GenerateState =
@@ -33,10 +34,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
   const isGenerating = state.status === 'generating'
 
   useEffect(() => {
-    if (!isGenerating) {
-      setElapsed(0)
-      return
-    }
+    if (!isGenerating) return
     const interval = setInterval(() => setElapsed((s) => s + 1), 1000)
     return () => clearInterval(interval)
   }, [isGenerating])
@@ -60,6 +58,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
       }
 
       idempotencyKeyRef.current = crypto.randomUUID()
+      setElapsed(0)
       setState({ status: 'generating' })
 
       const techStack = form.techStack
@@ -101,7 +100,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
         }
 
         setState({ status: 'idle' })
-        onSuccess(json as GenerateResult)
+        onSuccess({ ...(json as Omit<GenerateResult, 'companyName'>), companyName: form.companyName.trim() })
       } catch {
         setState({ status: 'error', message: 'Error de red. Verificá tu conexión.' })
       }

@@ -41,6 +41,7 @@ describe('HarvardCvSchema', () => {
   })
 
   it('should accept optional fields absent', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { certifications: _, ...withoutCerts } = validCv
     expect(HarvardCvSchema.safeParse(withoutCerts).success).toBe(true)
   })
