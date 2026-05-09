@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
 import { UploadInputSchema } from '@/lib/schemas/api-inputs.schema'
-import { createUploadCvUseCase } from '@/lib/composition/container'
+import { createUploadCvUseCase, createRateLimiter } from '@/lib/composition/container'
 
 export const maxDuration = 60
 
@@ -14,6 +14,10 @@ export async function POST(request: Request) {
   const supabase = await createAuthClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return err('UNAUTHORIZED', 'Authentication required', 401)
+
+  // Rate limit
+  const allowed = await createRateLimiter().check(user.id, 'upload')
+  if (!allowed) return err('RATE_LIMIT', 'Demasiadas subidas — esperá antes de intentar de nuevo', 429)
 
   // Parse multipart form data
   let formData: FormData
