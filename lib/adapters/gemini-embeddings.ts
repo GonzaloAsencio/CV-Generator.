@@ -13,7 +13,7 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
-    this.model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL })
+    this.model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL }, { apiVersion: 'v1' })
   }
 
   async embed(text: string): Promise<number[]> {
