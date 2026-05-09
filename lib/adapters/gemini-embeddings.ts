@@ -4,7 +4,7 @@ import type { EmbeddingProvider } from '@/lib/ports/embedding-provider'
 // outputDimensionality is accepted by the API but not yet typed in SDK v0.24.
 type EmbedRequest = EmbedContentRequest & { outputDimensionality?: number }
 
-const EMBEDDING_MODEL = 'text-embedding-004'
+const EMBEDDING_MODEL = 'gemini-embedding-2'
 const OUTPUT_DIMENSIONALITY = 768
 const BATCH_SIZE = 10
 
@@ -13,7 +13,7 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey)
-    this.model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL }, { apiVersion: 'v1' })
+    this.model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL })
   }
 
   async embed(text: string): Promise<number[]> {
