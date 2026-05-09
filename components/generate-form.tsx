@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { HarvardCv } from '@/lib/schemas/harvard-cv.schema'
+import type { CompanyInput } from '@/lib/schemas/api-inputs.schema'
 
 export interface GenerateResult {
   cv: HarvardCv
   meta: { chunksUsed: number; topSimilarity: number; generationId: string }
   companyName: string
+  jobOffer: string
+  company: CompanyInput
 }
 
 type GenerateState =
@@ -100,7 +103,12 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
         }
 
         setState({ status: 'idle' })
-        onSuccess({ ...(json as Omit<GenerateResult, 'companyName'>), companyName: form.companyName.trim() })
+        onSuccess({
+          ...(json as Omit<GenerateResult, 'companyName' | 'jobOffer' | 'company'>),
+          companyName: form.companyName.trim(),
+          jobOffer: form.jobOffer.trim(),
+          company: body.company,
+        })
       } catch {
         setState({ status: 'error', message: 'Error de red. Verificá tu conexión.' })
       }

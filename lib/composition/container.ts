@@ -10,6 +10,7 @@ import { MemoryRateLimiter } from '@/lib/adapters/memory-rate-limiter'
 import { SupabaseLlmCallLogger } from '@/lib/adapters/supabase-llm-call-logger'
 import { UploadCvUseCase } from '@/lib/use-cases/upload-cv'
 import { GenerateTailoredCvUseCase } from '@/lib/use-cases/generate-tailored-cv'
+import { GenerateSpeechUseCase } from '@/lib/use-cases/generate-speech.use-case'
 import type { CvRepository } from '@/lib/ports/cv-repository'
 import type { GenerationRepository } from '@/lib/ports/generation-repository'
 import type { RateLimiter } from '@/lib/ports/rate-limiter'
@@ -47,6 +48,15 @@ export function createUploadCvUseCase(): UploadCvUseCase {
 
 export function createGenerationRepository(): GenerationRepository {
   return new SupabaseGenerationRepository(createSupabaseServiceClient())
+}
+
+export function createGenerateSpeechUseCase(): GenerateSpeechUseCase {
+  return new GenerateSpeechUseCase(
+    new GeminiEmbeddingProvider(process.env.GOOGLE_API_KEY!),
+    createCvRepository(),
+    new GeminiLlmProvider(process.env.GOOGLE_API_KEY!),
+    createGenerationRepository(),
+  )
 }
 
 export function createGenerateTailoredCvUseCase(): GenerateTailoredCvUseCase {
