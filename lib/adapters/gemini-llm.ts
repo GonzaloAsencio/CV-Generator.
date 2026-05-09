@@ -18,6 +18,7 @@ export class GeminiLlmProvider implements LlmProvider {
     const generativeModel = this.genAI.getGenerativeModel({
       model: this.model,
       systemInstruction: opts.systemPrompt,
+      generationConfig: { responseMimeType: 'application/json' },
     })
     const result = await generativeModel.generateContent(opts.userPrompt)
     return {
