@@ -130,7 +130,16 @@ export function CvUploadForm({ onSuccess }: CvUploadFormProps) {
       )}
 
       {state.status === 'error' && (
-        <p className="mt-3 text-sm font-medium text-red-600">{state.message}</p>
+        <div className="mt-3">
+          <p className="text-sm font-medium text-red-600">{state.message}</p>
+          <button
+            type="button"
+            onClick={() => setState({ status: 'idle' })}
+            className="mt-1 text-sm text-red-600 underline underline-offset-2 hover:text-red-700"
+          >
+            Reintentar
+          </button>
+        </div>
       )}
     </div>
   )
