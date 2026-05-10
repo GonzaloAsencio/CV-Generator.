@@ -161,6 +161,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  const cvText = process.argv[3] ?? 'CV de prueba — reemplazá con texto real del candidato.'
   const cvUseCase = createGenerateTailoredCvUseCase()
   const speechUseCase = createGenerateSpeechUseCase()
 
@@ -174,6 +175,7 @@ async function main(): Promise<void> {
     try {
       const out = await cvUseCase.execute({
         userId,
+        cvText,
         jobOffer,
         company,
         idempotencyKey: `test-cv-${i}-${Date.now()}`,
@@ -198,6 +200,7 @@ async function main(): Promise<void> {
     try {
       const out = await speechUseCase.execute({
         userId,
+        cvText,
         jobOffer,
         company,
         idempotencyKey: `test-speech-${i}-${Date.now()}`,

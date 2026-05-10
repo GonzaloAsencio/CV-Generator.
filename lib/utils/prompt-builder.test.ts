@@ -5,7 +5,6 @@ import {
   buildRetryUserPrompt,
   extractJsonFromLlmText,
 } from './prompt-builder'
-import type { RelevantChunk } from '@/lib/ports/cv-repository'
 import type { CompanySnapshot } from '@/lib/ports/generation-repository'
 
 const company: CompanySnapshot = {
@@ -16,10 +15,7 @@ const company: CompanySnapshot = {
   notes: 'Focus on remote',
 }
 
-const chunks: RelevantChunk[] = [
-  { id: '1', content: 'Worked on React apps', similarity: 0.9 },
-  { id: '2', content: 'Led backend team', similarity: 0.8 },
-]
+const cvText = 'Worked on React apps. Led backend team.'
 
 describe('CV_SYSTEM_PROMPT', () => {
   it('should instruct the model to output only valid JSON', () => {
@@ -29,30 +25,30 @@ describe('CV_SYSTEM_PROMPT', () => {
 
 describe('buildHarvardUserPrompt', () => {
   it('should include the company name', () => {
-    const prompt = buildHarvardUserPrompt(chunks, company, 'Looking for React dev')
+    const prompt = buildHarvardUserPrompt(cvText, company, 'Looking for React dev')
     expect(prompt).toContain('Acme Corp')
   })
 
   it('should include the tech stack', () => {
-    const prompt = buildHarvardUserPrompt(chunks, company, 'job offer text')
+    const prompt = buildHarvardUserPrompt(cvText, company, 'job offer text')
     expect(prompt).toContain('React')
     expect(prompt).toContain('Node.js')
   })
 
-  it('should include all chunk contents', () => {
-    const prompt = buildHarvardUserPrompt(chunks, company, 'job offer text')
+  it('should include the CV text content', () => {
+    const prompt = buildHarvardUserPrompt(cvText, company, 'job offer text')
     expect(prompt).toContain('Worked on React apps')
     expect(prompt).toContain('Led backend team')
   })
 
   it('should include the job offer', () => {
-    const prompt = buildHarvardUserPrompt(chunks, company, 'Senior React Developer needed')
+    const prompt = buildHarvardUserPrompt(cvText, company, 'Senior React Developer needed')
     expect(prompt).toContain('Senior React Developer needed')
   })
 
   it('should handle optional company fields gracefully', () => {
     const minimal: CompanySnapshot = { name: 'Startup' }
-    const prompt = buildHarvardUserPrompt(chunks, minimal, 'job offer')
+    const prompt = buildHarvardUserPrompt(cvText, minimal, 'job offer')
     expect(prompt).toContain('Startup')
     expect(prompt).not.toContain('undefined')
   })

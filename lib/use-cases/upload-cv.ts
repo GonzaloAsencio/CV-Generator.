@@ -10,6 +10,7 @@ export interface UploadCvInput {
 
 export interface UploadCvOutput {
   chunks: number
+  extractedText: string
 }
 
 export class UploadCvUseCase {
@@ -38,6 +39,6 @@ export class UploadCvUseCase {
 
     await this.cvRepository.saveChunks(input.userId, cvChunks)
 
-    return { chunks: cvChunks.length }
+    return { chunks: cvChunks.length, extractedText: text }
   }
 }

@@ -1,6 +1,4 @@
 import { SpeechSchema, type Speech } from '@/lib/schemas/speech.schema'
-import type { EmbeddingProvider } from '@/lib/ports/embedding-provider'
-import type { CvRepository } from '@/lib/ports/cv-repository'
 import type { LlmProvider } from '@/lib/ports/llm-provider'
 import type { GenerationRepository, CompanySnapshot } from '@/lib/ports/generation-repository'
 import {
@@ -30,6 +28,7 @@ export class LlmInvalidSpeechOutputError extends Error {
 
 export interface GenerateSpeechInput {
   userId: string
+  cvText: string
   jobOffer: string
   company: CompanySnapshot
   idempotencyKey?: string
@@ -47,32 +46,18 @@ export interface GenerateSpeechOutput {
 
 export class GenerateSpeechUseCase {
   constructor(
-    private readonly embeddingProvider: EmbeddingProvider,
-    private readonly cvRepository: CvRepository,
     private readonly llmProvider: LlmProvider,
     private readonly generationRepository: GenerationRepository,
   ) {}
 
   async execute(input: GenerateSpeechInput): Promise<GenerateSpeechOutput> {
-    const { userId, jobOffer, company, idempotencyKey, generatedCvId } = input
+    const { userId, cvText, jobOffer, company, idempotencyKey, generatedCvId } = input
 
-    // Ciclo 1: embed job offer
-    const vector = await this.embeddingProvider.embed(jobOffer)
-
-    // Ciclo 2: find relevant chunks
-    const chunks = await this.cvRepository.findRelevantChunks(userId, vector, 6, 0.65)
-    if (chunks.length === 0) throw new NoCvUploadedForSpeechError()
-
-    const topSimilarity = Math.max(...chunks.map((c) => c.similarity))
-
-    // Ciclo 3: build prompts
     const systemPrompt = SPEECH_SYSTEM_PROMPT
-    const userPrompt = buildSpeechUserPrompt(chunks, company, jobOffer)
+    const userPrompt = buildSpeechUserPrompt(cvText, company, jobOffer)
 
-    // Ciclo 4, 5 & 6: call LLM, parse, retry once on failure
     const { speech } = await this.callLlmWithRetry(systemPrompt, userPrompt, company)
 
-    // Ciclo 7: persist
     const { id: generationId } = await this.generationRepository.saveSpeech({
       userId,
       speechData: speech,
@@ -81,7 +66,7 @@ export class GenerateSpeechUseCase {
       idempotencyKey,
     })
 
-    return { speech, generationId, chunksUsed: chunks.length, topSimilarity }
+    return { speech, generationId, chunksUsed: 0, topSimilarity: 1 }
   }
 
   private async callLlmWithRetry(

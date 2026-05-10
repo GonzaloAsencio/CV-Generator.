@@ -18,6 +18,14 @@ function err(code: string, message: string, status: number) {
   return Response.json({ error: { code, message } }, { status })
 }
 
+function isGeminiRateLimit(e: unknown): boolean {
+  return (
+    e instanceof Error &&
+    'status' in e &&
+    (e as { status: number }).status === 429
+  )
+}
+
 export async function POST(request: Request) {
   // Auth
   const supabase = await createAuthClient()
@@ -40,6 +48,27 @@ export async function POST(request: Request) {
   }
   const { jobOffer, company } = validation.data
 
+  // Fetch CV text and personal info from profile
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('cv_text, full_name, email, phone, location, linkedin_url, github_url')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile?.cv_text) {
+    return err('NOT_FOUND', 'No tenés CV guardado — completá tu perfil primero', 404)
+  }
+  const cvText = profile.cv_text
+
+  const personalInfo = {
+    name:     profile.full_name    || undefined,
+    email:    profile.email        || undefined,
+    phone:    profile.phone        || undefined,
+    location: profile.location     || undefined,
+    linkedin: profile.linkedin_url || undefined,
+    github:   profile.github_url   || undefined,
+  }
+
   // Idempotency — fast path before rate limit and use case
   const idempotencyKey = request.headers.get('Idempotency-Key') ?? undefined
   if (idempotencyKey) {
@@ -56,9 +85,11 @@ export async function POST(request: Request) {
   try {
     result = await createGenerateTailoredCvUseCase().execute({
       userId: user.id,
+      cvText,
       jobOffer,
       company,
       idempotencyKey,
+      personalInfo,
     })
   } catch (e) {
     if (e instanceof NoCvUploadedError) {
@@ -67,6 +98,10 @@ export async function POST(request: Request) {
     if (e instanceof LlmInvalidOutputError) {
       return err('LLM_INVALID_OUTPUT', e.validationDetail, 422)
     }
+    if (isGeminiRateLimit(e)) {
+      return err('RATE_LIMIT', 'Cuota de Gemini agotada — intentá de nuevo más tarde', 429)
+    }
+    console.error('[/api/generate] Unhandled error:', e)
     return err('INTERNAL', 'Generation failed', 500)
   }
 

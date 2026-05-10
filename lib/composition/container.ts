@@ -52,8 +52,6 @@ export function createGenerationRepository(): GenerationRepository {
 
 export function createGenerateSpeechUseCase(): GenerateSpeechUseCase {
   return new GenerateSpeechUseCase(
-    new GeminiEmbeddingProvider(process.env.GOOGLE_API_KEY!),
-    createCvRepository(),
     new GeminiLlmProvider(process.env.GOOGLE_API_KEY!),
     createGenerationRepository(),
   )
@@ -62,8 +60,6 @@ export function createGenerateSpeechUseCase(): GenerateSpeechUseCase {
 export function createGenerateTailoredCvUseCase(): GenerateTailoredCvUseCase {
   const serviceClient = createSupabaseServiceClient()
   return new GenerateTailoredCvUseCase(
-    new GeminiEmbeddingProvider(process.env.GOOGLE_API_KEY!),
-    createCvRepository(),
     new GeminiLlmProvider(process.env.GOOGLE_API_KEY!),
     createGenerationRepository(),
     new SupabaseLlmCallLogger(serviceClient),

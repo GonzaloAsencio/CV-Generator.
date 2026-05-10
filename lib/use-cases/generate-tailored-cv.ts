@@ -1,6 +1,4 @@
 import { HarvardCvSchema, type HarvardCv } from '@/lib/schemas/harvard-cv.schema'
-import type { EmbeddingProvider } from '@/lib/ports/embedding-provider'
-import type { CvRepository } from '@/lib/ports/cv-repository'
 import type { LlmProvider } from '@/lib/ports/llm-provider'
 import type { GenerationRepository, CompanySnapshot } from '@/lib/ports/generation-repository'
 import type { LlmCallLogger } from '@/lib/ports/llm-call-logger'
@@ -11,6 +9,7 @@ import {
   buildRetryUserPrompt,
   extractJsonFromLlmText,
 } from '@/lib/utils/prompt-builder'
+import type { ParsedPersonalInfo } from '@/lib/utils/cv-parser'
 
 // ─── errors ──────────────────────────────────────────────────────────────────
 
@@ -32,9 +31,11 @@ export class LlmInvalidOutputError extends Error {
 
 export interface GenerateTailoredCvInput {
   userId: string
+  cvText: string
   jobOffer: string
   company: CompanySnapshot
   idempotencyKey?: string
+  personalInfo?: Partial<ParsedPersonalInfo>
 }
 
 export interface GenerateTailoredCvOutput {
@@ -48,35 +49,29 @@ export interface GenerateTailoredCvOutput {
 
 export class GenerateTailoredCvUseCase {
   constructor(
-    private readonly embeddingProvider: EmbeddingProvider,
-    private readonly cvRepository: CvRepository,
     private readonly llmProvider: LlmProvider,
     private readonly generationRepository: GenerationRepository,
     private readonly logger: LlmCallLogger = noopLlmCallLogger,
   ) {}
 
   async execute(input: GenerateTailoredCvInput): Promise<GenerateTailoredCvOutput> {
-    const { userId, jobOffer, company, idempotencyKey } = input
+    const { userId, cvText, jobOffer, company, idempotencyKey, personalInfo } = input
 
-    // Ciclo 1: embed job offer
-    const vector = await this.embeddingProvider.embed(jobOffer)
-
-    // Ciclo 2: find relevant chunks
-    const chunks = await this.cvRepository.findRelevantChunks(userId, vector, 6, 0.65)
-    if (chunks.length === 0) throw new NoCvUploadedError()
-
-    const topSimilarity = Math.max(...chunks.map((c) => c.similarity))
-
-    // Ciclo 3: build prompts
     const systemPrompt = CV_SYSTEM_PROMPT
-    const userPrompt = buildHarvardUserPrompt(chunks, company, jobOffer)
+    const userPrompt = buildHarvardUserPrompt(cvText, company, jobOffer, personalInfo)
 
-    // Ciclo 4 & 5 & 6: call LLM, parse, retry once on failure
-    const { cv, retryCount, latencyMs } = await this.callLlmWithRetry(
-      systemPrompt,
-      userPrompt,
-      userId,
-    )
+    const { cv, retryCount, latencyMs } = await this.callLlmWithRetry(systemPrompt, userPrompt, userId)
+
+    // Overwrite personal fields with explicit profile values when available.
+    // Prevents LLM hallucination regardless of prompt output.
+    if (personalInfo) {
+      if (personalInfo.name)     cv.personal.name     = personalInfo.name
+      if (personalInfo.email)    cv.personal.email    = personalInfo.email
+      if (personalInfo.phone)    cv.personal.phone    = personalInfo.phone
+      if (personalInfo.location) cv.personal.location = personalInfo.location
+      if (personalInfo.linkedin !== undefined) cv.personal.linkedin = personalInfo.linkedin
+      if (personalInfo.github   !== undefined) cv.personal.github   = personalInfo.github
+    }
 
     void this.logger.log({
       userId,
@@ -88,18 +83,17 @@ export class GenerateTailoredCvUseCase {
       latencyMs,
     })
 
-    // Ciclo 7: persist
     const { id: generationId } = await this.generationRepository.saveCv({
       userId,
       cvData: cv,
       company,
       jobOfferSnippet: jobOffer.slice(0, 500),
-      chunksUsed: chunks.length,
-      topSimilarity,
+      chunksUsed: 0,
+      topSimilarity: 1,
       idempotencyKey,
     })
 
-    return { cv, generationId, chunksUsed: chunks.length, topSimilarity }
+    return { cv, generationId, chunksUsed: 0, topSimilarity: 1 }
   }
 
   private async callLlmWithRetry(
@@ -114,7 +108,6 @@ export class GenerateTailoredCvUseCase {
       return { cv: firstParsed.data, retryCount: 0, latencyMs: first.latencyMs }
     }
 
-    // Retry once with the validation error embedded
     const errorDetail = firstParsed.error
     const retryPrompt = buildRetryUserPrompt(`Error de validación: ${errorDetail}`)
     const second = await this.llmProvider.complete({ systemPrompt, userPrompt: retryPrompt })

@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { GenerateSpeechUseCase, LlmInvalidSpeechOutputError, NoCvUploadedForSpeechError } from './generate-speech.use-case'
+import { GenerateSpeechUseCase, LlmInvalidSpeechOutputError } from './generate-speech.use-case'
 import {
-  createTestEmbeddingProvider,
-  createTestCvRepository,
   createTestLlmProvider,
   createTestGenerationRepository,
 } from '@/lib/composition/test-container'
@@ -33,38 +31,20 @@ const COMPANY: CompanySnapshot = {
 }
 
 const JOB_OFFER = 'Buscamos un desarrollador React con 5+ años de experiencia y TypeScript.'
-
-const MOCK_CHUNKS = [
-  { id: '1', content: 'Experiencia en React y TypeScript', similarity: 0.92 },
-  { id: '2', content: 'Lideré equipo de 4 personas', similarity: 0.85 },
-]
-
-const MOCK_VECTOR = Array(768).fill(0.1)
+const CV_TEXT = 'Experiencia en React y TypeScript. Lideré equipo de 4 personas.'
 
 // ─── setup ───────────────────────────────────────────────────────────────────
 
 describe('GenerateSpeechUseCase', () => {
-  let embeddingProvider: ReturnType<typeof createTestEmbeddingProvider>
-  let cvRepository: ReturnType<typeof createTestCvRepository>
   let llmProvider: ReturnType<typeof createTestLlmProvider>
   let generationRepository: ReturnType<typeof createTestGenerationRepository>
   let useCase: GenerateSpeechUseCase
 
   beforeEach(() => {
-    embeddingProvider = createTestEmbeddingProvider()
-    cvRepository = createTestCvRepository()
     llmProvider = createTestLlmProvider()
     generationRepository = createTestGenerationRepository()
-    useCase = new GenerateSpeechUseCase(
-      embeddingProvider,
-      cvRepository,
-      llmProvider,
-      generationRepository,
-    )
+    useCase = new GenerateSpeechUseCase(llmProvider, generationRepository)
 
-    // Happy-path defaults
-    vi.mocked(embeddingProvider.embed).mockResolvedValue(MOCK_VECTOR)
-    vi.mocked(cvRepository.findRelevantChunks).mockResolvedValue(MOCK_CHUNKS)
     vi.mocked(llmProvider.complete).mockResolvedValue({
       text: JSON.stringify(VALID_SPEECH),
       latencyMs: 500,
@@ -72,55 +52,34 @@ describe('GenerateSpeechUseCase', () => {
     vi.mocked(generationRepository.saveSpeech).mockResolvedValue({ id: 'speech-001' })
   })
 
-  // ── Ciclo 1: embed jobOffer ───────────────────────────────────────────────
-
-  it('should embed the jobOffer text', async () => {
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
-    expect(embeddingProvider.embed).toHaveBeenCalledWith(JOB_OFFER)
-  })
-
-  // ── Ciclo 2: find relevant chunks ─────────────────────────────────────────
-
-  it('should search for relevant chunks using the embedded vector', async () => {
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
-    expect(cvRepository.findRelevantChunks).toHaveBeenCalledWith('u1', MOCK_VECTOR, 6, 0.65)
-  })
-
-  it('should throw NoCvUploadedForSpeechError when no chunks are found', async () => {
-    vi.mocked(cvRepository.findRelevantChunks).mockResolvedValue([])
-    await expect(
-      useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY }),
-    ).rejects.toThrow(NoCvUploadedForSpeechError)
-  })
-
-  // ── Ciclo 3: build speech prompt ──────────────────────────────────────────
+  // ── Prompt building ───────────────────────────────────────────────────────
 
   it('should call the LLM with a system prompt and a user prompt containing company name', async () => {
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     const [opts] = vi.mocked(llmProvider.complete).mock.calls[0]
     expect(opts.systemPrompt).toBeTruthy()
     expect(opts.userPrompt).toContain('TechCo')
     expect(opts.userPrompt).toContain(JOB_OFFER)
   })
 
-  it('should include chunk contents in the LLM prompt', async () => {
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+  it('should include the CV text in the LLM prompt', async () => {
+    await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     const [opts] = vi.mocked(llmProvider.complete).mock.calls[0]
-    expect(opts.userPrompt).toContain('Experiencia en React y TypeScript')
+    expect(opts.userPrompt).toContain(CV_TEXT)
   })
 
-  // ── Ciclo 4: call LLM and parse SpeechSchema ──────────────────────────────
+  // ── Happy path ────────────────────────────────────────────────────────────
 
   it('should return the parsed Speech on successful LLM response', async () => {
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     expect(result.speech).toEqual(VALID_SPEECH)
   })
 
   it('should return correct metadata', async () => {
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     expect(result.generationId).toBe('speech-001')
-    expect(result.chunksUsed).toBe(2)
-    expect(result.topSimilarity).toBeCloseTo(0.92)
+    expect(result.chunksUsed).toBe(0)
+    expect(result.topSimilarity).toBe(1)
   })
 
   it('should strip markdown code fences from LLM response', async () => {
@@ -128,18 +87,18 @@ describe('GenerateSpeechUseCase', () => {
       text: '```json\n' + JSON.stringify(VALID_SPEECH) + '\n```',
       latencyMs: 500,
     })
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     expect(result.speech).toEqual(VALID_SPEECH)
   })
 
-  // ── Ciclo 5: invalid JSON → retries once ─────────────────────────────────
+  // ── Retry logic ───────────────────────────────────────────────────────────
 
   it('should retry once when LLM returns invalid JSON', async () => {
     vi.mocked(llmProvider.complete)
       .mockResolvedValueOnce({ text: 'not valid json', latencyMs: 400 })
       .mockResolvedValueOnce({ text: JSON.stringify(VALID_SPEECH), latencyMs: 400 })
 
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
 
     expect(llmProvider.complete).toHaveBeenCalledTimes(2)
     expect(result.speech).toEqual(VALID_SPEECH)
@@ -150,13 +109,11 @@ describe('GenerateSpeechUseCase', () => {
       .mockResolvedValueOnce({ text: '{"bad": "schema"}', latencyMs: 400 })
       .mockResolvedValueOnce({ text: JSON.stringify(VALID_SPEECH), latencyMs: 400 })
 
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
 
     const retryCall = vi.mocked(llmProvider.complete).mock.calls[1][0]
     expect(retryCall.userPrompt).toContain('Error de validación')
   })
-
-  // ── Ciclo 6: retry fails → throw LlmInvalidSpeechOutputError ─────────────
 
   it('should throw LlmInvalidSpeechOutputError when both attempts return invalid JSON', async () => {
     vi.mocked(llmProvider.complete).mockResolvedValue({
@@ -165,7 +122,7 @@ describe('GenerateSpeechUseCase', () => {
     })
 
     await expect(
-      useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY }),
+      useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY }),
     ).rejects.toThrow(LlmInvalidSpeechOutputError)
   })
 
@@ -173,16 +130,16 @@ describe('GenerateSpeechUseCase', () => {
     vi.mocked(llmProvider.complete).mockResolvedValue({ text: '{}', latencyMs: 400 })
 
     await expect(
-      useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY }),
+      useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY }),
     ).rejects.toThrow(LlmInvalidSpeechOutputError)
 
     expect(llmProvider.complete).toHaveBeenCalledTimes(2)
   })
 
-  // ── Ciclo 7: persist with saveSpeech ──────────────────────────────────────
+  // ── Persistence ───────────────────────────────────────────────────────────
 
   it('should save the speech with the company snapshot', async () => {
-    await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
     expect(generationRepository.saveSpeech).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'u1',
@@ -195,6 +152,7 @@ describe('GenerateSpeechUseCase', () => {
   it('should pass the idempotency key to the repository when provided', async () => {
     await useCase.execute({
       userId: 'u1',
+      cvText: CV_TEXT,
       jobOffer: JOB_OFFER,
       company: COMPANY,
       idempotencyKey: 'idem-key-abc',
@@ -207,6 +165,7 @@ describe('GenerateSpeechUseCase', () => {
   it('should pass generatedCvId to the repository when provided', async () => {
     await useCase.execute({
       userId: 'u1',
+      cvText: CV_TEXT,
       jobOffer: JOB_OFFER,
       company: COMPANY,
       generatedCvId: 'cv-999',
@@ -220,7 +179,7 @@ describe('GenerateSpeechUseCase', () => {
     vi.mocked(llmProvider.complete).mockResolvedValue({ text: 'bad', latencyMs: 400 })
 
     await expect(
-      useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY }),
+      useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY }),
     ).rejects.toThrow(LlmInvalidSpeechOutputError)
 
     expect(generationRepository.saveSpeech).not.toHaveBeenCalled()
@@ -238,7 +197,7 @@ describe('GenerateSpeechUseCase', () => {
       .mockResolvedValueOnce({ text: JSON.stringify(speechWithoutCompany), latencyMs: 400 })
       .mockResolvedValueOnce({ text: JSON.stringify(VALID_SPEECH), latencyMs: 400 })
 
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
 
     expect(llmProvider.complete).toHaveBeenCalledTimes(2)
     expect(result.speech).toEqual(VALID_SPEECH)
@@ -256,7 +215,7 @@ describe('GenerateSpeechUseCase', () => {
     })
 
     await expect(
-      useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY }),
+      useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY }),
     ).rejects.toThrow(LlmInvalidSpeechOutputError)
 
     expect(llmProvider.complete).toHaveBeenCalledTimes(2)
@@ -272,7 +231,7 @@ describe('GenerateSpeechUseCase', () => {
       .mockResolvedValueOnce({ text: JSON.stringify(speechWithoutTech), latencyMs: 400 })
       .mockResolvedValueOnce({ text: JSON.stringify(VALID_SPEECH), latencyMs: 400 })
 
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: COMPANY })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: COMPANY })
 
     expect(llmProvider.complete).toHaveBeenCalledTimes(2)
     expect(result.speech).toEqual(VALID_SPEECH)
@@ -290,7 +249,7 @@ describe('GenerateSpeechUseCase', () => {
       latencyMs: 400,
     })
 
-    const result = await useCase.execute({ userId: 'u1', jobOffer: JOB_OFFER, company: companyNoStack })
+    const result = await useCase.execute({ userId: 'u1', cvText: CV_TEXT, jobOffer: JOB_OFFER, company: companyNoStack })
     expect(result.speech).toEqual(speechNoTech)
     expect(llmProvider.complete).toHaveBeenCalledTimes(1)
   })

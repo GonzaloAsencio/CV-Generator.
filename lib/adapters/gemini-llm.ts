@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { LlmProvider, LlmOptions, LlmResult } from '@/lib/ports/llm-provider'
 
-const DEFAULT_MODEL = 'gemini-2.0-flash'
+const DEFAULT_MODEL = 'gemini-2.5-flash'
 
 export class GeminiLlmProvider implements LlmProvider {
   private readonly genAI: GoogleGenerativeAI
@@ -18,7 +18,6 @@ export class GeminiLlmProvider implements LlmProvider {
     const generativeModel = this.genAI.getGenerativeModel({
       model: this.model,
       systemInstruction: opts.systemPrompt,
-      generationConfig: { responseMimeType: 'application/json' },
     })
     const result = await generativeModel.generateContent(opts.userPrompt)
     return {

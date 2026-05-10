@@ -40,6 +40,18 @@ export async function POST(request: Request) {
   }
   const { jobOffer, company, generatedCvId } = validation.data
 
+  // Fetch CV text from profile
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('cv_text')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!profile?.cv_text) {
+    return err('NOT_FOUND', 'No tenés CV guardado — completá tu perfil primero', 404)
+  }
+  const cvText = profile.cv_text
+
   // Idempotency — fast path before rate limit and use case
   const idempotencyKey = request.headers.get('Idempotency-Key') ?? undefined
   if (idempotencyKey) {
@@ -56,6 +68,7 @@ export async function POST(request: Request) {
   try {
     result = await createGenerateSpeechUseCase().execute({
       userId: user.id,
+      cvText,
       jobOffer,
       company,
       generatedCvId,

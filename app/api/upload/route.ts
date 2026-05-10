@@ -47,9 +47,11 @@ export async function POST(request: Request) {
   const useCase = createUploadCvUseCase()
 
   let chunks: number
+  let extractedText: string
   try {
     const result = await useCase.execute({ userId: user.id, buffer })
     chunks = result.chunks
+    extractedText = result.extractedText
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Upload failed'
     if (msg.includes('Could not extract text')) {
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
     cv_uploaded_at: new Date().toISOString(),
     cv_chunks_count: chunks,
     cv_storage_path: storagePath,
+    cv_text: extractedText,
     updated_at: new Date().toISOString(),
   })
 
