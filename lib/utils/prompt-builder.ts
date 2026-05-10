@@ -1,5 +1,6 @@
 import type { CompanySnapshot } from '@/lib/ports/generation-repository'
 import { parsePersonalInfo, type ParsedPersonalInfo } from './cv-parser'
+import type { ProfileData } from '@/lib/schemas/profile-data.schema'
 
 export const CV_SYSTEM_PROMPT = `Sos un experto en RRHH con 15 años redactando CVs Harvard que pasan ATS.
 Tu tarea es adaptar el CV del candidato a la oferta usando el formato Harvard.
@@ -101,6 +102,96 @@ Notas: ${company.notes ?? 'Sin notas'}
 ${jobOffer}
 
 Generá el CV adaptado en JSON Harvard usando los datos REALES del candidato.`
+}
+
+export function buildStructuredUserPrompt(
+  profileData: ProfileData,
+  company: CompanySnapshot,
+  jobOffer: string,
+  explicit?: Partial<ParsedPersonalInfo>,
+): string {
+  const p = {
+    name:     explicit?.name,
+    email:    explicit?.email,
+    phone:    explicit?.phone,
+    location: explicit?.location,
+    linkedin: explicit?.linkedin,
+    github:   explicit?.github,
+  }
+  const personalBlock = [
+    `=== DATOS PERSONALES DEL CANDIDATO ===`,
+    `Nombre completo : ${p.name ?? '(ver perfil)'}`,
+    `Email           : ${p.email ?? '(ver perfil)'}`,
+    `Teléfono        : ${p.phone ?? '(ver perfil)'}`,
+    `Ubicación       : ${p.location ?? '(ver perfil)'}`,
+    `LinkedIn        : ${p.linkedin ?? 'No especificado'}`,
+    `GitHub          : ${p.github ?? 'No especificado'}`,
+    ``,
+    `⚠️ Copiá estos valores textualmente en personal.* — NO los cambies ni inventes.`,
+    `======================================`,
+  ].join('\n')
+
+  const expBlock = profileData.experience.length > 0
+    ? profileData.experience.map((exp, i) => {
+        const bullets = exp.highlights.map(h => `  - ${h}`).join('\n')
+        return `[${i + 1}] ${exp.company} | ${exp.title} | ${exp.location} | ${exp.period}\n${bullets}`
+      }).join('\n\n')
+    : '(sin experiencia cargada)'
+
+  const eduBlock = profileData.education.length > 0
+    ? profileData.education.map(e => {
+        const honors = e.honors ? ` · ${e.honors}` : ''
+        return `  ${e.degree} · ${e.institution} · ${e.location} · ${e.year}${honors}`
+      }).join('\n')
+    : '(sin educación cargada)'
+
+  const techSkills = profileData.skills.technical.join(', ') || '(no especificadas)'
+  const softSkills = profileData.skills.soft.join(', ') || '(no especificadas)'
+
+  const langsBlock = profileData.languages.length > 0
+    ? profileData.languages.map(l => `  ${l.language} (${l.level})`).join('\n')
+    : '(no especificados)'
+
+  const certsBlock = profileData.certifications.length > 0
+    ? profileData.certifications.map(c => `  - ${c}`).join('\n')
+    : '(sin certificaciones)'
+
+  return `${personalBlock}
+
+=== EXPERIENCIA LABORAL (⚠️ company/title/location/period son FIJOS — NO modificar) ===
+${expBlock}
+
+=== EDUCACIÓN (⚠️ DATOS FIJOS — NO modificar institution/degree/location/year) ===
+${eduBlock}
+
+=== HABILIDADES TÉCNICAS ===
+${techSkills}
+
+=== HABILIDADES BLANDAS ===
+${softSkills}
+
+=== IDIOMAS ===
+${langsBlock}
+
+=== CERTIFICACIONES ===
+${certsBlock}
+
+=== CONTEXTO DE LA EMPRESA ===
+Nombre: ${company.name}
+Industria: ${company.industry ?? 'No especificada'}
+Tech Stack: ${company.techStack?.join(', ') ?? 'No especificado'}
+Cultura: ${company.culture ?? 'No especificada'}
+Notas: ${company.notes ?? 'Sin notas'}
+
+=== OFERTA ===
+${jobOffer}
+
+INSTRUCCIONES:
+1. Copiá personal.* textualmente desde DATOS PERSONALES.
+2. Generá "title" y "summary" orientados a esta oferta (máx 600 caracteres el summary).
+3. Generá EXACTAMENTE ${profileData.experience.length} entradas de experiencia en el MISMO ORDEN. Reescribí los highlights para destacar lo relevante, pero copiá company/title/location/period textualmente de cada entrada [N].
+4. Copiá educación, skills, idiomas y certificaciones textualmente sin cambios.
+5. Respondé ÚNICAMENTE con JSON Harvard válido.`
 }
 
 export function buildRetryUserPrompt(validationError: string): string {

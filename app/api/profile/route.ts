@@ -1,5 +1,6 @@
 import { createClient as createAuthClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
+import { ProfileDataSchema } from '@/lib/schemas/profile-data.schema'
 
 function err(code: string, message: string, status: number) {
   return Response.json({ error: { code, message } }, { status })
@@ -12,9 +13,13 @@ export async function GET(request: Request) {
 
   const { data } = await supabase
     .from('user_profiles')
-    .select('cv_text, cv_uploaded_at, full_name, email, phone, location, linkedin_url, github_url')
+    .select('cv_text, cv_uploaded_at, full_name, email, phone, location, linkedin_url, github_url, profile_data')
     .eq('user_id', user.id)
     .single()
+
+  const profileData = data?.profile_data
+    ? ProfileDataSchema.safeParse(data.profile_data).data ?? null
+    : null
 
   return Response.json({
     cvText:       data?.cv_text ?? null,
@@ -25,6 +30,7 @@ export async function GET(request: Request) {
     location:     data?.location ?? null,
     linkedinUrl:  data?.linkedin_url ?? null,
     githubUrl:    data?.github_url ?? null,
+    profileData,
   })
 }
 
@@ -88,5 +94,20 @@ export async function PATCH(request: Request) {
     return Response.json({ success: true })
   }
 
-  return err('VALIDATION_ERROR', 'El body debe incluir cvText o personalInfo', 400)
+  // Rama: actualizar datos estructurados del perfil
+  if ('profileData' in (body as object)) {
+    const { profileData } = body as { profileData: unknown }
+    const result = ProfileDataSchema.safeParse(profileData)
+    if (!result.success) {
+      return err('VALIDATION_ERROR', 'Datos de perfil inválidos', 400)
+    }
+    await serviceClient.from('user_profiles').upsert({
+      user_id:      user.id,
+      profile_data: result.data,
+      updated_at:   new Date().toISOString(),
+    })
+    return Response.json({ success: true })
+  }
+
+  return err('VALIDATION_ERROR', 'El body debe incluir cvText, personalInfo o profileData', 400)
 }

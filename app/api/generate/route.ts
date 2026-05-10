@@ -4,6 +4,7 @@ import { createGenerateTailoredCvUseCase, createRateLimiter } from '@/lib/compos
 import { NoCvUploadedError, LlmInvalidOutputError } from '@/lib/use-cases/generate-tailored-cv'
 import { IdempotencyCache } from '@/lib/utils/idempotency'
 import type { HarvardCv } from '@/lib/schemas/harvard-cv.schema'
+import { ProfileDataSchema } from '@/lib/schemas/profile-data.schema'
 
 export const maxDuration = 60
 
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   // Fetch CV text and personal info from profile
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('cv_text, full_name, email, phone, location, linkedin_url, github_url')
+    .select('cv_text, full_name, email, phone, location, linkedin_url, github_url, profile_data')
     .eq('user_id', user.id)
     .single()
 
@@ -68,6 +69,10 @@ export async function POST(request: Request) {
     linkedin: profile.linkedin_url || undefined,
     github:   profile.github_url   || undefined,
   }
+
+  const profileData = profile.profile_data
+    ? ProfileDataSchema.safeParse(profile.profile_data).data
+    : undefined
 
   // Idempotency — fast path before rate limit and use case
   const idempotencyKey = request.headers.get('Idempotency-Key') ?? undefined
@@ -90,6 +95,7 @@ export async function POST(request: Request) {
       company,
       idempotencyKey,
       personalInfo,
+      profileData,
     })
   } catch (e) {
     if (e instanceof NoCvUploadedError) {
