@@ -15,7 +15,7 @@ export function SignOutButton() {
   return (
     <button
       onClick={handleSignOut}
-      className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+      className="text-sm text-ink-4 hover:text-ink transition-colors duration-150"
     >
       Cerrar sesión
     </button>

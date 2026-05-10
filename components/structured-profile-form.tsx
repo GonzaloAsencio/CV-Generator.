@@ -11,8 +11,8 @@ interface Props {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-0'
-const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
+const inputClass = 'w-full border border-rule bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-5 focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/20 transition-colors duration-150'
+const labelClass = 'font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4 mb-2 block'
 
 const listToText = (arr: string[]) => arr.join('\n')
 const textToList = (t: string) => t.split('\n').map(l => l.replace(/^[-•·,]\s*/, '').trim()).filter(Boolean)
@@ -78,23 +78,20 @@ export function StructuredProfileForm({ initialData }: Props) {
 
   return (
     <div className="space-y-10">
-      {/* Experiencia */}
       <ExperienceSection entries={experience} onChange={setExperience} />
 
-      <hr className="border-gray-100" />
+      <hr className="border-rule-soft" />
 
-      {/* Educación */}
       <EducationSection entries={education} onChange={setEducation} />
 
-      <hr className="border-gray-100" />
+      <hr className="border-rule-soft" />
 
-      {/* Skills */}
       <section>
-        <h2 className="text-lg font-semibold mb-4">Habilidades</h2>
-        <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-ink mb-4">Habilidades</h2>
+        <div className="space-y-4">
           <div>
             <label className={labelClass}>
-              Técnicas <span className="text-gray-400">(separadas por coma)</span>
+              Técnicas <span className="normal-case text-ink-5">(separadas por coma)</span>
             </label>
             <input
               type="text"
@@ -106,7 +103,7 @@ export function StructuredProfileForm({ initialData }: Props) {
           </div>
           <div>
             <label className={labelClass}>
-              Blandas <span className="text-gray-400">(separadas por coma)</span>
+              Blandas <span className="normal-case text-ink-5">(separadas por coma)</span>
             </label>
             <input
               type="text"
@@ -119,16 +116,15 @@ export function StructuredProfileForm({ initialData }: Props) {
         </div>
       </section>
 
-      <hr className="border-gray-100" />
+      <hr className="border-rule-soft" />
 
-      {/* Idiomas */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Idiomas</h2>
+          <h2 className="text-lg font-semibold text-ink">Idiomas</h2>
           <button
             type="button"
             onClick={addLanguage}
-            className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="shrink-0 border border-rule px-3 py-1.5 text-sm font-medium text-ink-3 hover:border-ink hover:bg-paper-2 transition-colors duration-150"
           >
             + Agregar
           </button>
@@ -153,7 +149,7 @@ export function StructuredProfileForm({ initialData }: Props) {
               <button
                 type="button"
                 onClick={() => removeLanguage(lang.id)}
-                className="text-gray-400 hover:text-red-500 transition-colors px-1"
+                className="text-ink-5 hover:text-danger transition-colors duration-150 px-1"
                 aria-label="Eliminar idioma"
               >
                 ✕
@@ -161,17 +157,16 @@ export function StructuredProfileForm({ initialData }: Props) {
             </div>
           ))}
           {languages.length === 0 && (
-            <p className="text-sm text-gray-400">Sin idiomas cargados.</p>
+            <p className="text-sm text-ink-5">Sin idiomas cargados.</p>
           )}
         </div>
       </section>
 
-      <hr className="border-gray-100" />
+      <hr className="border-rule-soft" />
 
-      {/* Certificaciones */}
       <section>
-        <h2 className="text-lg font-semibold mb-2">Certificaciones</h2>
-        <p className="text-xs text-gray-500 mb-3">Una por línea. Dejá vacío si no tenés.</p>
+        <h2 className="text-lg font-semibold text-ink mb-2">Certificaciones</h2>
+        <p className="text-xs text-ink-4 mb-3">Una por línea. Dejá vacío si no tenés.</p>
         <textarea
           rows={4}
           value={certifications}
@@ -181,21 +176,20 @@ export function StructuredProfileForm({ initialData }: Props) {
         />
       </section>
 
-      {/* Save */}
       <div className="pt-2">
         <button
           type="button"
           onClick={handleSave}
           disabled={saveState === 'saving'}
-          className="w-full sm:w-auto rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:opacity-50"
+          className="w-full sm:w-auto inline-flex items-center justify-center bg-ink px-6 py-3 text-sm font-medium text-white hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
         >
           {saveState === 'saving' ? 'Guardando…' : 'Guardar perfil estructurado'}
         </button>
         {saveState === 'saved' && (
-          <p className="mt-2 text-sm font-medium text-green-600">Perfil guardado. La próxima generación usará estos datos.</p>
+          <p className="mt-2 text-sm font-medium text-positive">Perfil guardado. La próxima generación usará estos datos.</p>
         )}
         {saveState === 'error' && (
-          <p className="mt-2 text-sm font-medium text-red-600">{errorMessage}</p>
+          <p className="mt-2 text-sm font-medium text-danger">{errorMessage}</p>
         )}
       </div>
     </div>

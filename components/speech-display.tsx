@@ -36,33 +36,30 @@ export function SpeechDisplay({ speech, companyName }: SpeechDisplayProps) {
 
   return (
     <div className="space-y-5">
-      {/* Sections */}
       {sections.map(({ key, label }) => (
         <section key={key}>
           <SectionTitle>{label}</SectionTitle>
-          <p className="text-sm text-gray-700 leading-relaxed">{speech.sections[key]}</p>
+          <p className="text-sm text-ink-2 leading-relaxed">{speech.sections[key]}</p>
         </section>
       ))}
 
-      {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
         <button
           onClick={handleCopy}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="border border-rule px-4 py-2 text-sm font-medium text-ink-3 hover:border-ink hover:bg-paper-2 transition-colors duration-150"
         >
-          {copied ? 'Copiado!' : 'Copiar texto'}
+          {copied ? 'Copiado' : 'Copiar texto'}
         </button>
         <button
           onClick={handleDownload}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="border border-rule px-4 py-2 text-sm font-medium text-ink-3 hover:border-ink hover:bg-paper-2 transition-colors duration-150"
         >
           Descargar .txt
         </button>
       </div>
 
-      {/* Meta */}
-      <footer className="border-t border-gray-100 pt-3">
-        <p className="text-xs text-gray-400">
+      <footer className="border-t border-rule-soft pt-3">
+        <p className="text-xs text-ink-5">
           {speech.word_count} palabras · {speech.estimated_duration_minutes} min estimado
         </p>
       </footer>
@@ -72,7 +69,7 @@ export function SpeechDisplay({ speech, companyName }: SpeechDisplayProps) {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-gray-400">
+    <h4 className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4">
       {children}
     </h4>
   )

@@ -21,6 +21,9 @@ interface GenerateFormProps {
   onSuccess: (result: GenerateResult) => void
 }
 
+const inputClass =
+  'w-full border border-rule bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-5 focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/20 transition-colors duration-150 disabled:bg-paper disabled:text-ink-5'
+
 export function GenerateForm({ onSuccess }: GenerateFormProps) {
   const [form, setForm] = useState({
     companyName: '',
@@ -118,9 +121,8 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Company fields */}
       <fieldset className="space-y-3">
-        <legend className="text-sm font-medium text-gray-700">Empresa</legend>
+        <legend className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4 mb-2">Empresa</legend>
 
         <input
           type="text"
@@ -128,7 +130,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           value={form.companyName}
           onChange={handleField('companyName')}
           disabled={isGenerating}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+          className={inputClass}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -138,7 +140,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
             value={form.industry}
             onChange={handleField('industry')}
             disabled={isGenerating}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            className={inputClass}
           />
           <div>
             <FieldLabel
@@ -153,7 +155,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
               value={form.techStack}
               onChange={handleField('techStack')}
               disabled={isGenerating}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+              className={inputClass}
             />
           </div>
         </div>
@@ -171,7 +173,7 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
             value={form.culture}
             onChange={handleField('culture')}
             disabled={isGenerating}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            className={inputClass}
           />
         </div>
 
@@ -188,12 +190,11 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
             value={form.notes}
             onChange={handleField('notes')}
             disabled={isGenerating}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            className={inputClass}
           />
         </div>
       </fieldset>
 
-      {/* Job offer */}
       <div>
         <textarea
           placeholder="Pegá la oferta de trabajo completa *"
@@ -201,37 +202,36 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           onChange={handleField('jobOffer')}
           disabled={isGenerating}
           rows={6}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400 resize-none"
+          className={`${inputClass} resize-none`}
         />
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-ink-5">
           {form.jobOffer.trim().length} / 100 caracteres mínimo
         </p>
       </div>
 
-      {/* Submit */}
       <button
         type="submit"
         disabled={isGenerating}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400 transition-colors"
+        className="w-full inline-flex items-center justify-center gap-2 bg-ink text-white px-6 py-3 text-sm font-medium hover:bg-ink-2 active:bg-ink-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
       >
         {isGenerating ? (
-          <span className="flex items-center justify-center gap-2">
+          <>
             <Spinner />
             Generando CV{elapsed > 0 ? ` · ${elapsed}s` : '…'}
-          </span>
+          </>
         ) : (
-          'Generar CV Harvard'
+          'Generá tu CV Harvard'
         )}
       </button>
 
       {isGenerating && (
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-ink-5">
           El modelo analiza tu CV y la oferta. Puede tardar hasta 30 segundos.
         </p>
       )}
 
       {state.status === 'error' && (
-        <p className="text-sm font-medium text-red-600">{state.message}</p>
+        <p className="text-sm font-medium text-danger">{state.message}</p>
       )}
     </form>
   )
@@ -247,8 +247,8 @@ function FieldLabel({
   tooltip?: string
 }) {
   return (
-    <div className="mb-1 flex items-center gap-1">
-      <label htmlFor={htmlFor} className="text-xs font-medium text-gray-600">
+    <div className="mb-2 flex items-center gap-1">
+      <label htmlFor={htmlFor} className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4">
         {label}
       </label>
       {tooltip && <Tooltip text={tooltip} />}
@@ -259,10 +259,10 @@ function FieldLabel({
 function Tooltip({ text }: { text: string }) {
   return (
     <span title={text} className="group relative ml-0.5 inline-flex cursor-help">
-      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 transition-colors hover:bg-gray-300">
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rule text-xs text-ink-4 transition-colors hover:bg-rule-soft">
         ?
       </span>
-      <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded-lg bg-gray-900 px-2.5 py-2 text-xs leading-relaxed text-white opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+      <span className="pointer-events-none absolute left-0 top-full z-20 mt-1 w-56 rounded-sm bg-ink px-2.5 py-2 text-xs leading-relaxed text-white opacity-0 shadow-[var(--shadow-1)] transition-opacity group-hover:opacity-100">
         {text}
       </span>
     </span>

@@ -56,10 +56,17 @@ export async function POST(request: Request) {
     .eq('user_id', user.id)
     .single()
 
-  if (!profile?.cv_text) {
-    return err('NOT_FOUND', 'No tenés CV guardado — completá tu perfil primero', 404)
+  const profileData = profile?.profile_data
+    ? ProfileDataSchema.safeParse(profile.profile_data).data
+    : undefined
+
+  const useStructured = !!profileData && profileData.experience.length > 0
+
+  if (!profile?.cv_text && !useStructured) {
+    return err('NOT_FOUND', 'Completá tu experiencia en Mi perfil antes de generar', 404)
   }
-  const cvText = profile.cv_text
+
+  const cvText = profile.cv_text ?? ''
 
   const personalInfo = {
     name:     profile.full_name    || undefined,
@@ -69,10 +76,6 @@ export async function POST(request: Request) {
     linkedin: profile.linkedin_url || undefined,
     github:   profile.github_url   || undefined,
   }
-
-  const profileData = profile.profile_data
-    ? ProfileDataSchema.safeParse(profile.profile_data).data
-    : undefined
 
   // Idempotency — fast path before rate limit and use case
   const idempotencyKey = request.headers.get('Idempotency-Key') ?? undefined

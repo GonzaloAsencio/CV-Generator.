@@ -46,11 +46,9 @@ export async function POST(request: Request) {
   const buffer = Buffer.from(await file.arrayBuffer())
   const useCase = createUploadCvUseCase()
 
-  let chunks: number
   let extractedText: string
   try {
     const result = await useCase.execute({ userId: user.id, buffer })
-    chunks = result.chunks
     extractedText = result.extractedText
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Upload failed'
@@ -75,11 +73,10 @@ export async function POST(request: Request) {
   await serviceClient.from('user_profiles').upsert({
     user_id: user.id,
     cv_uploaded_at: new Date().toISOString(),
-    cv_chunks_count: chunks,
     cv_storage_path: storagePath,
     cv_text: extractedText,
     updated_at: new Date().toISOString(),
   })
 
-  return Response.json({ success: true, chunks })
+  return Response.json({ success: true })
 }

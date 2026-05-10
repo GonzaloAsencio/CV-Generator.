@@ -16,8 +16,8 @@ const empty = (): EducationEntry => ({
   honors:      '',
 })
 
-const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-0'
-const labelClass = 'block text-xs font-medium text-gray-600 mb-1'
+const inputClass = 'w-full border border-rule bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-5 focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/20 transition-colors duration-150'
+const labelClass = 'font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4 mb-2 block'
 
 export function EducationSection({ entries, onChange }: Props) {
   const update = (id: string, patch: Partial<EducationEntry>) =>
@@ -29,11 +29,11 @@ export function EducationSection({ entries, onChange }: Props) {
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Educación</h2>
+        <h2 className="text-lg font-semibold text-ink">Educación</h2>
         <button
           type="button"
           onClick={() => onChange([...entries, empty()])}
-          className="shrink-0 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="shrink-0 border border-rule px-3 py-1.5 text-sm font-medium text-ink-3 hover:border-ink hover:bg-paper-2 transition-colors duration-150"
         >
           + Agregar
         </button>
@@ -41,15 +41,15 @@ export function EducationSection({ entries, onChange }: Props) {
 
       <div className="space-y-4">
         {entries.map((entry, idx) => (
-          <div key={entry.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div key={entry.id} className="border border-rule bg-white p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4">
                 Educación {idx + 1}
               </span>
               <button
                 type="button"
                 onClick={() => remove(entry.id)}
-                className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                className="text-xs text-danger hover:opacity-70 transition-opacity"
               >
                 Eliminar
               </button>
@@ -98,7 +98,7 @@ export function EducationSection({ entries, onChange }: Props) {
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>
-                  Mención <span className="text-gray-400">(opcional)</span>
+                  Mención <span className="normal-case text-ink-5">(opcional)</span>
                 </label>
                 <input
                   type="text"
@@ -113,8 +113,8 @@ export function EducationSection({ entries, onChange }: Props) {
         ))}
 
         {entries.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-4">
-            Sin educación cargada. Hacé click en "+ Agregar" para empezar.
+          <p className="text-sm text-ink-5 text-center py-4">
+            Sin educación cargada. Hacé click en &quot;+ Agregar&quot; para empezar.
           </p>
         )}
       </div>

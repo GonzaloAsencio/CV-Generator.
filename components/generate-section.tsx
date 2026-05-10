@@ -72,14 +72,14 @@ export function GenerateSection() {
       <GenerateForm onSuccess={handleNewResult} />
 
       {result && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="bg-white border border-rule p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold text-gray-900">CV generado</h3>
+            <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4">CV generado</h3>
             <div className="flex items-center gap-3">
               <DownloadCvButton cv={result.cv} companyName={result.companyName} />
               <button
                 onClick={() => { setResult(null); setSpeech(null) }}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-xs text-ink-5 hover:text-ink-3 transition-colors duration-150"
               >
                 Limpiar
               </button>
@@ -95,7 +95,7 @@ export function GenerateSection() {
             <button
               onClick={handleGenerateSpeech}
               disabled={speechState === 'generating'}
-              className="rounded-lg border border-blue-600 px-5 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+              className="border border-rule px-5 py-2 text-sm font-medium text-ink-3 hover:border-ink hover:bg-paper-2 disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-150"
             >
               {speechState === 'generating' ? (
                 <span className="flex items-center gap-2">
@@ -109,11 +109,11 @@ export function GenerateSection() {
           </div>
 
           {speechState === 'error' && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center">
-              <p className="text-sm text-red-700">{speechError}</p>
+            <div className="border border-[var(--danger-rule)] bg-danger-soft px-4 py-3 text-center rounded-sm">
+              <p className="text-sm text-danger">{speechError}</p>
               <button
                 onClick={handleGenerateSpeech}
-                className="mt-1.5 text-sm font-medium text-red-700 underline underline-offset-2 hover:text-red-800"
+                className="mt-1.5 text-sm font-medium text-danger underline underline-offset-2 hover:opacity-80"
               >
                 Reintentar
               </button>
@@ -123,12 +123,12 @@ export function GenerateSection() {
       )}
 
       {speech && result && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="bg-white border border-rule p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold text-gray-900">Speech técnico</h3>
+            <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4">Speech técnico</h3>
             <button
               onClick={() => { setSpeech(null); setSpeechState('idle') }}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-xs text-ink-5 hover:text-ink-3 transition-colors duration-150"
             >
               Limpiar
             </button>
