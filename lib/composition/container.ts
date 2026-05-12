@@ -17,7 +17,11 @@ import type { LlmProvider } from '@/lib/ports/llm-provider'
 function createLlmProvider(): LlmProvider {
   const lmStudioUrl = process.env.LM_STUDIO_BASE_URL
   if (lmStudioUrl) {
-    return new LmStudioLlmProvider(lmStudioUrl, process.env.LM_STUDIO_MODEL)
+    return new LmStudioLlmProvider(
+      lmStudioUrl,
+      process.env.LM_STUDIO_MODEL,
+      process.env.LM_STUDIO_MAX_TOKENS ? Number(process.env.LM_STUDIO_MAX_TOKENS) : undefined,
+    )
   }
   return new GeminiLlmProvider(process.env.GOOGLE_API_KEY!)
 }

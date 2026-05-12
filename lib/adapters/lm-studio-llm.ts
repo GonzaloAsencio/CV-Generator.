@@ -2,6 +2,7 @@ import type { LlmProvider, LlmOptions, LlmResult } from '@/lib/ports/llm-provide
 
 const DEFAULT_BASE_URL = 'http://localhost:1234'
 const DEFAULT_MODEL = 'gemma-4-8b'
+const DEFAULT_MAX_TOKENS = 4096
 
 interface OpenAiMessage {
   role: 'system' | 'user' | 'assistant'
@@ -11,6 +12,7 @@ interface OpenAiMessage {
 interface OpenAiRequestBody {
   model: string
   messages: OpenAiMessage[]
+  max_tokens: number
 }
 
 interface OpenAiChoice {
@@ -28,13 +30,16 @@ interface OpenAiChatResponse {
 export class LmStudioLlmProvider implements LlmProvider {
   private readonly baseUrl: string
   private readonly model: string
+  private readonly maxTokens: number
 
   constructor(
     baseUrl: string = DEFAULT_BASE_URL,
     model: string = DEFAULT_MODEL,
+    maxTokens: number = DEFAULT_MAX_TOKENS,
   ) {
     this.baseUrl = baseUrl.replace(/\/$/, '')
     this.model = model
+    this.maxTokens = maxTokens
   }
 
   async complete(opts: LlmOptions): Promise<LlmResult> {
@@ -46,6 +51,7 @@ export class LmStudioLlmProvider implements LlmProvider {
         { role: 'system', content: opts.systemPrompt },
         { role: 'user',   content: opts.userPrompt },
       ],
+      max_tokens: this.maxTokens,
     }
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
