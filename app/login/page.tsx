@@ -19,7 +19,7 @@ export default async function LoginPage({
   return (
     <main className="min-h-screen flex items-center justify-center bg-paper">
       <div className="bg-white p-8 rounded-md border border-rule w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-1 text-ink">CV Tailor AI</h1>
+        <h1 className="text-2xl font-bold text-center mb-1 text-ink">CV Generator</h1>
         <p className="text-ink-4 text-center text-sm mb-6">
           Adaptá tu CV a cada oferta en segundos
         </p>

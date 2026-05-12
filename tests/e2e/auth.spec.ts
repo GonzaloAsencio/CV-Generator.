@@ -4,7 +4,7 @@ test.describe('Auth flows (unauthenticated)', () => {
   test('login page shows heading and Google sign-in button', async ({ page }) => {
     await page.goto('/login')
 
-    await expect(page.getByRole('heading', { name: 'CV Tailor AI' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'CV Generator' })).toBeVisible()
     await expect(page.getByRole('button', { name: /continuar con google/i })).toBeVisible()
   })
 
@@ -18,6 +18,6 @@ test.describe('Auth flows (unauthenticated)', () => {
     await page.goto('/dashboard')
 
     await expect(page).toHaveURL(/\/login/)
-    await expect(page.getByRole('heading', { name: 'CV Tailor AI' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'CV Generator' })).toBeVisible()
   })
 })

@@ -21,20 +21,20 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: 'CV Tailor AI',
-    template: '%s — CV Tailor AI',
+    default: 'CV Generator',
+    template: '%s — CV Generator',
   },
   description:
     'Adaptá tu CV al formato Harvard y generá un speech técnico personalizado para cada oferta de trabajo, usando inteligencia artificial.',
   openGraph: {
-    title: 'CV Tailor AI',
+    title: 'CV Generator',
     description: 'CVs Harvard + speeches técnicos personalizados con IA.',
     type: 'website',
     locale: 'es_AR',
   },
   twitter: {
     card: 'summary',
-    title: 'CV Tailor AI',
+    title: 'CV Generator',
     description: 'CVs Harvard + speeches técnicos personalizados con IA.',
   },
 };

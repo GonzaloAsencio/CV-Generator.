@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-screen bg-paper">
       <header className="bg-white border-b border-rule px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-        <span className="font-mono text-xs uppercase tracking-widest text-ink">CV Tailor AI</span>
+        <span className="font-mono text-xs uppercase tracking-widest text-ink">CV Generator</span>
         <div className="flex items-center gap-4 min-w-0">
           <span className="hidden sm:inline text-sm text-ink-4 truncate">{user.email}</span>
           <Link
