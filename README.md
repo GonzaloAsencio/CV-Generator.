@@ -16,12 +16,6 @@ Subís tu CV en PDF, pegás la descripción del puesto y la app genera un CV tai
 
 ---
 
-## Screenshots
-
-> _Próximamente — agrega imágenes o un gif de demo aquí._
-
----
-
 ## Características
 
 - **Generación inteligente** — Gemini AI adapta tu CV al puesto sin inventar datos
@@ -65,7 +59,7 @@ cd Cv-Generator
 # 2. Instalar dependencias
 npm install
 
-# 3. Configurar variables de entorno (ver sección siguiente)
+# 3. Configurar variables de entorn
 cp .env.local.example .env.local
 
 # 4. Levantar el servidor de desarrollo
