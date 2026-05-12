@@ -64,22 +64,12 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
 
   return (
     <section>
-      <div className="flex items-start justify-between mb-6 gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Datos personales</h2>
-          <p className="text-sm text-ink-4 mt-0.5">
-            Esta información se usa directamente al generar tus CVs y tiene prioridad sobre los datos
-            extraídos del PDF.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saveState === 'saving'}
-          className="shrink-0 inline-flex items-center justify-center bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
-        >
-          {saveState === 'saving' ? 'Guardando…' : 'Guardar'}
-        </button>
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-ink">Datos personales</h2>
+        <p className="text-sm text-ink-4 mt-0.5">
+          Esta información se usa directamente al generar tus CVs y tiene prioridad sobre los datos
+          extraídos del PDF.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -158,12 +148,22 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
         </div>
       </div>
 
-      {saveState === 'saved' && (
-        <p className="mt-3 text-sm font-medium text-positive">Datos personales guardados.</p>
-      )}
-      {saveState === 'error' && (
-        <p className="mt-3 text-sm font-medium text-danger">{errorMessage}</p>
-      )}
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saveState === 'saving'}
+          className="inline-flex items-center justify-center bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
+        >
+          {saveState === 'saving' ? 'Guardando…' : 'Guardar'}
+        </button>
+        {saveState === 'saved' && (
+          <p className="text-sm font-medium text-positive">Datos personales guardados.</p>
+        )}
+        {saveState === 'error' && (
+          <p className="text-sm font-medium text-danger">{errorMessage}</p>
+        )}
+      </div>
     </section>
   )
 }

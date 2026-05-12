@@ -21,6 +21,20 @@ interface GenerateFormProps {
   onSuccess: (result: GenerateResult) => void
 }
 
+const GENERATION_STEPS = [
+  { atSecond: 0,  message: 'Analizando la oferta de trabajo…' },
+  { atSecond: 6,  message: 'Buscando similitudes con tu perfil…' },
+  { atSecond: 15, message: 'Generando el contenido del CV…' },
+  { atSecond: 28, message: 'Adaptando secciones a la empresa…' },
+  { atSecond: 42, message: 'Validando la estructura Harvard…' },
+  { atSecond: 56, message: 'Guardando y finalizando…' },
+]
+
+function getStepMessage(elapsed: number): string {
+  const step = [...GENERATION_STEPS].reverse().find((s) => elapsed >= s.atSecond)
+  return step?.message ?? GENERATION_STEPS[0].message
+}
+
 const inputClass =
   'w-full border border-rule bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-5 focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/20 transition-colors duration-150 disabled:bg-paper disabled:text-ink-5'
 
@@ -133,16 +147,16 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           className={inputClass}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             type="text"
-            placeholder="Industria (ej: Fintech, E-commerce)"
+            placeholder="Industria (ej: Fintech)"
             value={form.industry}
             onChange={handleField('industry')}
             disabled={isGenerating}
             className={inputClass}
           />
-          <div>
+          <div className="sm:col-span-2">
             <FieldLabel
               htmlFor="techStack"
               label="Tech stack"
@@ -209,25 +223,27 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
         </p>
       </div>
 
-      <button
-        type="submit"
-        disabled={isGenerating}
-        className="w-full inline-flex items-center justify-center gap-2 bg-ink text-white px-6 py-3 text-sm font-medium hover:bg-ink-2 active:bg-ink-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
-      >
-        {isGenerating ? (
-          <>
+      {isGenerating ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-4">
             <Spinner />
-            Generando CV{elapsed > 0 ? ` · ${elapsed}s` : '…'}
-          </>
-        ) : (
-          'Generá tu CV Harvard'
-        )}
-      </button>
-
-      {isGenerating && (
-        <p className="text-center text-xs text-ink-5">
-          El modelo analiza tu CV y la oferta. Puede tardar hasta 30 segundos.
-        </p>
+            <span>Generando CV{elapsed > 0 ? ` · ${elapsed}s` : '…'}</span>
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-paper-2">
+            <div
+              className="h-1 rounded-full bg-accent transition-all duration-1000 ease-linear"
+              style={{ width: `${Math.min((elapsed / 70) * 100, 95)}%` }}
+            />
+          </div>
+          <p className="text-center text-xs text-ink-5">{getStepMessage(elapsed)}</p>
+        </div>
+      ) : (
+        <button
+          type="submit"
+          className="w-full inline-flex items-center justify-center gap-2 bg-ink text-white px-6 py-3 text-sm font-medium hover:bg-ink-2 active:bg-ink-3 transition-colors duration-150"
+        >
+          Generá tu CV Harvard
+        </button>
       )}
 
       {state.status === 'error' && (
