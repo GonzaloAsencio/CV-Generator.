@@ -150,7 +150,7 @@ export class GenerateTailoredCvUseCase {
     }
 
     const errorDetail = firstParsed.error
-    const retryPrompt = buildRetryUserPrompt(`Error de validación: ${errorDetail}`)
+    const retryPrompt = buildRetryUserPrompt(userPrompt, first.text, `Error de validación: ${errorDetail}`)
     const second = await this.llmProvider.complete({ systemPrompt, userPrompt: retryPrompt })
     const secondParsed = this.tryParse(second.text)
 

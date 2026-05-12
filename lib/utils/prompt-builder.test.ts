@@ -55,8 +55,10 @@ describe('buildHarvardUserPrompt', () => {
 })
 
 describe('buildRetryUserPrompt', () => {
-  it('should include the validation error in the retry prompt', () => {
-    const prompt = buildRetryUserPrompt('Required field "name" is missing')
+  it('should include original prompt, first response and validation error', () => {
+    const prompt = buildRetryUserPrompt('original context', '{"bad":"json"}', 'Required field "name" is missing')
+    expect(prompt).toContain('original context')
+    expect(prompt).toContain('{"bad":"json"}')
     expect(prompt).toContain('Required field "name" is missing')
   })
 })

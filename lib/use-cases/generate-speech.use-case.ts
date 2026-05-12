@@ -79,7 +79,7 @@ export class GenerateSpeechUseCase {
 
     if (firstParsed.success) return { speech: firstParsed.data }
 
-    const retryPrompt = buildSpeechRetryUserPrompt(`Error de validación: ${firstParsed.error}`)
+    const retryPrompt = buildSpeechRetryUserPrompt(userPrompt, first.text, `Error de validación: ${firstParsed.error}`)
     const second = await this.llmProvider.complete({ systemPrompt, userPrompt: retryPrompt })
     const secondParsed = this.tryParse(second.text, company)
 

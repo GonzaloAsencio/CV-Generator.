@@ -194,9 +194,15 @@ INSTRUCCIONES:
 5. Respondé ÚNICAMENTE con JSON Harvard válido.`
 }
 
-export function buildRetryUserPrompt(validationError: string): string {
-  return `El JSON anterior no cumple el schema Harvard.
-Error: ${validationError}
+export function buildRetryUserPrompt(originalPrompt: string, firstResponse: string, validationError: string): string {
+  return `${originalPrompt}
+
+---
+INTENTO ANTERIOR (JSON inválido que debés corregir):
+${firstResponse}
+
+ERROR DE VALIDACIÓN:
+${validationError}
 
 Corregí SOLO los campos con error y respondé con el JSON completo y válido.
 Sin markdown, sin explicaciones — solo el JSON.`
@@ -273,9 +279,15 @@ ${jobOffer}
 Generá el speech técnico en JSON Speech usando los datos REALES del candidato. El full_text DEBE mencionar "${company.name}" y al menos una tecnología del stack.`
 }
 
-export function buildSpeechRetryUserPrompt(validationError: string): string {
-  return `El JSON anterior no cumple el schema Speech.
-Error: ${validationError}
+export function buildSpeechRetryUserPrompt(originalPrompt: string, firstResponse: string, validationError: string): string {
+  return `${originalPrompt}
+
+---
+INTENTO ANTERIOR (JSON inválido que debés corregir):
+${firstResponse}
+
+ERROR DE VALIDACIÓN:
+${validationError}
 
 Recordá: word_count debe ser entero entre 350-450, full_text debe mencionar la empresa y al menos una tecnología del stack.
 Respondé con el JSON completo y válido. Sin markdown, sin explicaciones.`
