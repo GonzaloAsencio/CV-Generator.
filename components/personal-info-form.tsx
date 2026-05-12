@@ -92,7 +92,7 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
             type="text"
             value={form.fullName}
             onChange={handleField('fullName')}
-            placeholder="Gonzalo Asencio"
+            placeholder="Nombre Apellido"
             className={inputClass}
           />
         </div>
@@ -104,7 +104,7 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
             type="email"
             value={form.email}
             onChange={handleField('email')}
-            placeholder="gonzalo@ejemplo.com"
+            placeholder="nombre@ejemplo.com"
             className={inputClass}
           />
         </div>
@@ -116,7 +116,7 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
             type="tel"
             value={form.phone}
             onChange={handleField('phone')}
-            placeholder="+54 341 596-3255"
+            placeholder="+54 11 1234-5678"
             className={inputClass}
           />
         </div>
@@ -128,7 +128,7 @@ export function PersonalInfoForm({ initialData }: PersonalInfoFormProps) {
             type="text"
             value={form.location}
             onChange={handleField('location')}
-            placeholder="Rosario, Argentina"
+            placeholder="Ciudad, País"
             className={inputClass}
           />
         </div>
