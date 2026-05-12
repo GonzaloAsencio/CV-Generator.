@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   const useStructured = !!profileData && profileData.experience.length > 0
 
-  if (!profile?.cv_text && !useStructured) {
+  if (!profile || (!profile.cv_text && !useStructured)) {
     return err('NOT_FOUND', 'Completá tu experiencia en Mi perfil antes de generar', 404)
   }
 

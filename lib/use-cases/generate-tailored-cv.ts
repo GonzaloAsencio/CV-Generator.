@@ -75,8 +75,8 @@ export class GenerateTailoredCvUseCase {
       if (personalInfo.email)    cv.personal.email    = personalInfo.email
       if (personalInfo.phone)    cv.personal.phone    = personalInfo.phone
       if (personalInfo.location) cv.personal.location = personalInfo.location
-      if (personalInfo.linkedin !== undefined) cv.personal.linkedin = personalInfo.linkedin
-      if (personalInfo.github   !== undefined) cv.personal.github   = personalInfo.github
+      if (personalInfo.linkedin != null) cv.personal.linkedin = personalInfo.linkedin
+      if (personalInfo.github   != null) cv.personal.github   = personalInfo.github
     }
 
     // Overlay all structured profile data — guarantees no hallucination
