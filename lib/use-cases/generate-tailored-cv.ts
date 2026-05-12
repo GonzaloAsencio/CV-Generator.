@@ -39,6 +39,7 @@ export interface GenerateTailoredCvInput {
   idempotencyKey?: string
   personalInfo?: Partial<ParsedPersonalInfo>
   profileData?: ProfileData
+  language?: 'es' | 'en'
 }
 
 export interface GenerateTailoredCvOutput {
@@ -58,14 +59,14 @@ export class GenerateTailoredCvUseCase {
   ) {}
 
   async execute(input: GenerateTailoredCvInput): Promise<GenerateTailoredCvOutput> {
-    const { userId, cvText, jobOffer, company, idempotencyKey, personalInfo, profileData } = input
+    const { userId, cvText, jobOffer, company, idempotencyKey, personalInfo, profileData, language } = input
 
     const useStructured = !!profileData && profileData.experience.length > 0
 
     const systemPrompt = CV_SYSTEM_PROMPT
     const userPrompt = useStructured
-      ? buildStructuredUserPrompt(profileData, company, jobOffer, personalInfo)
-      : buildHarvardUserPrompt(cvText, company, jobOffer, personalInfo)
+      ? buildStructuredUserPrompt(profileData, company, jobOffer, personalInfo, language)
+      : buildHarvardUserPrompt(cvText, company, jobOffer, personalInfo, language)
 
     const { cv, retryCount, latencyMs } = await this.callLlmWithRetry(systemPrompt, userPrompt, userId)
 
@@ -90,27 +91,31 @@ export class GenerateTailoredCvUseCase {
           .map(h => h.trim()).filter(h => h.length > 0).slice(0, 5),
       })).map(e => ({ ...e, highlights: e.highlights.length > 0 ? e.highlights : ['Ver CV completo'] }))
 
-      cv.education = profileData.education.map(e => ({
-        degree:      e.degree,
-        institution: e.institution,
-        location:    e.location,
-        year:        e.year,
-        ...(e.honors ? { honors: e.honors } : {}),
-      }))
+      // When English is requested, let LLM translations of education/skills/languages stand.
+      // In Spanish (default), restore verbatim from profileData to prevent hallucination.
+      if (language !== 'en') {
+        cv.education = profileData.education.map(e => ({
+          degree:      e.degree,
+          institution: e.institution,
+          location:    e.location,
+          year:        e.year,
+          ...(e.honors ? { honors: e.honors } : {}),
+        }))
 
-      if (profileData.skills.technical.length > 0 || profileData.skills.soft.length > 0) {
-        cv.skills = {
-          technical: profileData.skills.technical,
-          soft:      profileData.skills.soft,
+        if (profileData.skills.technical.length > 0 || profileData.skills.soft.length > 0) {
+          cv.skills = {
+            technical: profileData.skills.technical,
+            soft:      profileData.skills.soft,
+          }
         }
-      }
 
-      if (profileData.languages.length > 0) {
-        cv.languages = profileData.languages.map(l => ({ language: l.language, level: l.level }))
-      }
+        if (profileData.languages.length > 0) {
+          cv.languages = profileData.languages.map(l => ({ language: l.language, level: l.level }))
+        }
 
-      if (profileData.certifications.length > 0) {
-        cv.certifications = profileData.certifications
+        if (profileData.certifications.length > 0) {
+          cv.certifications = profileData.certifications
+        }
       }
     }
 

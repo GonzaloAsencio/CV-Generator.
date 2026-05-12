@@ -1,11 +1,37 @@
 import type { HarvardCv } from '@/lib/schemas/harvard-cv.schema'
+import type { CvLanguage } from '@/lib/schemas/api-inputs.schema'
+
+const LABELS = {
+  es: {
+    summary: 'Resumen',
+    experience: 'Experiencia',
+    education: 'Educación',
+    skills: 'Habilidades',
+    technical: 'Técnicas',
+    soft: 'Blandas',
+    certifications: 'Certificaciones',
+    languages: 'Idiomas',
+  },
+  en: {
+    summary: 'Summary',
+    experience: 'Experience',
+    education: 'Education',
+    skills: 'Skills',
+    technical: 'Technical',
+    soft: 'Soft skills',
+    certifications: 'Certifications',
+    languages: 'Languages',
+  },
+}
 
 interface CvPreviewProps {
   cv: HarvardCv
   meta?: { chunksUsed: number; topSimilarity: number; generationId: string }
+  language?: CvLanguage
 }
 
-export function CvPreview({ cv, meta }: CvPreviewProps) {
+export function CvPreview({ cv, meta, language = 'es' }: CvPreviewProps) {
+  const t = LABELS[language]
   return (
     <div className="bg-white border border-rule px-12 py-16 space-y-8">
       {/* Personal */}
@@ -23,14 +49,14 @@ export function CvPreview({ cv, meta }: CvPreviewProps) {
 
       {/* Summary */}
       <section>
-        <SectionTitle>Resumen</SectionTitle>
+        <SectionTitle>{t.summary}</SectionTitle>
         <p className="text-sm text-ink-2 leading-relaxed">{cv.summary}</p>
       </section>
 
       {/* Experience */}
       {cv.experience.length > 0 && (
         <section>
-          <SectionTitle>Experiencia</SectionTitle>
+          <SectionTitle>{t.experience}</SectionTitle>
           <div className="space-y-6">
             {cv.experience.map((exp, i) => (
               <div key={i}>
@@ -57,7 +83,7 @@ export function CvPreview({ cv, meta }: CvPreviewProps) {
       {/* Education */}
       {cv.education.length > 0 && (
         <section>
-          <SectionTitle>Educación</SectionTitle>
+          <SectionTitle>{t.education}</SectionTitle>
           <div className="space-y-3">
             {cv.education.map((edu, i) => (
               <div key={i} className="flex items-baseline justify-between">
@@ -76,17 +102,17 @@ export function CvPreview({ cv, meta }: CvPreviewProps) {
       {/* Skills */}
       {(cv.skills.technical.length > 0 || cv.skills.soft.length > 0) && (
         <section>
-          <SectionTitle>Habilidades</SectionTitle>
+          <SectionTitle>{t.skills}</SectionTitle>
           <div className="space-y-1.5">
             {cv.skills.technical.length > 0 && (
               <div className="text-sm">
-                <span className="font-semibold text-ink">Técnicas: </span>
+                <span className="font-semibold text-ink">{t.technical}: </span>
                 <span className="text-ink-2">{cv.skills.technical.join(', ')}</span>
               </div>
             )}
             {cv.skills.soft.length > 0 && (
               <div className="text-sm">
-                <span className="font-semibold text-ink">Blandas: </span>
+                <span className="font-semibold text-ink">{t.soft}: </span>
                 <span className="text-ink-2">{cv.skills.soft.join(', ')}</span>
               </div>
             )}
@@ -97,7 +123,7 @@ export function CvPreview({ cv, meta }: CvPreviewProps) {
       {/* Certifications */}
       {cv.certifications && cv.certifications.length > 0 && (
         <section>
-          <SectionTitle>Certificaciones</SectionTitle>
+          <SectionTitle>{t.certifications}</SectionTitle>
           <ul className="space-y-1 pl-4">
             {cv.certifications.map((cert, i) => (
               <li key={i} className="text-sm text-ink-2 leading-relaxed list-disc">
@@ -111,7 +137,7 @@ export function CvPreview({ cv, meta }: CvPreviewProps) {
       {/* Languages */}
       {cv.languages.length > 0 && (
         <section>
-          <SectionTitle>Idiomas</SectionTitle>
+          <SectionTitle>{t.languages}</SectionTitle>
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             {cv.languages.map((lang, i) => (
               <span key={i} className="text-sm text-ink-2">

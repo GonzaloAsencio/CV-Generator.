@@ -85,7 +85,7 @@ export function GenerateSection() {
               </button>
             </div>
           </div>
-          <CvPreview cv={result.cv} meta={result.meta} />
+          <CvPreview cv={result.cv} meta={result.meta} language={result.language} />
         </div>
       )}
 

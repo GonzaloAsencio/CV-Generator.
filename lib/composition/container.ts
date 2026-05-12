@@ -14,7 +14,20 @@ import type { GenerationRepository } from '@/lib/ports/generation-repository'
 import type { RateLimiter } from '@/lib/ports/rate-limiter'
 import type { LlmProvider } from '@/lib/ports/llm-provider'
 
-function createLlmProvider(): LlmProvider {
+function createLlmProvider(providerName?: 'gemini' | 'lm-studio'): LlmProvider {
+  if (providerName === 'gemini') {
+    return new GeminiLlmProvider(process.env.GOOGLE_API_KEY!)
+  }
+  if (providerName === 'lm-studio') {
+    const url = process.env.LM_STUDIO_BASE_URL
+    if (!url) throw new Error('LM Studio not configured — LM_STUDIO_BASE_URL missing')
+    return new LmStudioLlmProvider(
+      url,
+      process.env.LM_STUDIO_MODEL,
+      process.env.LM_STUDIO_MAX_TOKENS ? Number(process.env.LM_STUDIO_MAX_TOKENS) : undefined,
+    )
+  }
+  // Auto-detect: LM Studio if configured, otherwise Gemini
   const lmStudioUrl = process.env.LM_STUDIO_BASE_URL
   if (lmStudioUrl) {
     return new LmStudioLlmProvider(
@@ -53,17 +66,17 @@ export function createGenerationRepository(): GenerationRepository {
   return new SupabaseGenerationRepository(createSupabaseServiceClient())
 }
 
-export function createGenerateSpeechUseCase(): GenerateSpeechUseCase {
+export function createGenerateSpeechUseCase(providerName?: 'gemini' | 'lm-studio'): GenerateSpeechUseCase {
   return new GenerateSpeechUseCase(
-    createLlmProvider(),
+    createLlmProvider(providerName),
     createGenerationRepository(),
   )
 }
 
-export function createGenerateTailoredCvUseCase(): GenerateTailoredCvUseCase {
+export function createGenerateTailoredCvUseCase(providerName?: 'gemini' | 'lm-studio'): GenerateTailoredCvUseCase {
   const serviceClient = createSupabaseServiceClient()
   return new GenerateTailoredCvUseCase(
-    createLlmProvider(),
+    createLlmProvider(providerName),
     createGenerationRepository(),
     new SupabaseLlmCallLogger(serviceClient),
   )

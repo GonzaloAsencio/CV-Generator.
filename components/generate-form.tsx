@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { HarvardCv } from '@/lib/schemas/harvard-cv.schema'
-import type { CompanyInput } from '@/lib/schemas/api-inputs.schema'
+import type { CompanyInput, CvLanguage, LlmProviderName } from '@/lib/schemas/api-inputs.schema'
 
 export interface GenerateResult {
   cv: HarvardCv
@@ -10,6 +10,7 @@ export interface GenerateResult {
   companyName: string
   jobOffer: string
   company: CompanyInput
+  language: CvLanguage
 }
 
 type GenerateState =
@@ -38,6 +39,8 @@ function getStepMessage(elapsed: number): string {
 const inputClass =
   'w-full border border-rule bg-white px-4 py-3 text-sm text-ink placeholder:text-ink-5 focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/20 transition-colors duration-150 disabled:bg-paper disabled:text-ink-5'
 
+const lmStudioAvailable = process.env.NEXT_PUBLIC_LM_STUDIO_AVAILABLE === 'true'
+
 export function GenerateForm({ onSuccess }: GenerateFormProps) {
   const [form, setForm] = useState({
     companyName: '',
@@ -47,6 +50,8 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
     notes: '',
     jobOffer: '',
   })
+  const [language, setLanguage] = useState<CvLanguage>('es')
+  const [provider, setProvider] = useState<LlmProviderName>('gemini')
   const [state, setState] = useState<GenerateState>({ status: 'idle' })
   const [elapsed, setElapsed] = useState(0)
   const idempotencyKeyRef = useRef<string | null>(null)
@@ -94,6 +99,8 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
           ...(form.culture.trim() && { culture: form.culture.trim() }),
           ...(form.notes.trim() && { notes: form.notes.trim() }),
         },
+        language,
+        ...(lmStudioAvailable && { provider }),
       }
 
       try {
@@ -121,10 +128,11 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
 
         setState({ status: 'idle' })
         onSuccess({
-          ...(json as Omit<GenerateResult, 'companyName' | 'jobOffer' | 'company'>),
+          ...(json as Omit<GenerateResult, 'companyName' | 'jobOffer' | 'company' | 'language'>),
           companyName: form.companyName.trim(),
           jobOffer: form.jobOffer.trim(),
           company: body.company,
+          language,
         })
       } catch {
         setState({ status: 'error', message: 'Error de red. Verificá tu conexión e intentá de nuevo.' })
@@ -223,6 +231,31 @@ export function GenerateForm({ onSuccess }: GenerateFormProps) {
         </p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <ToggleGroup
+          label="Idioma del CV"
+          value={language}
+          onChange={(v) => setLanguage(v as CvLanguage)}
+          disabled={isGenerating}
+          options={[
+            { value: 'es', label: 'Español' },
+            { value: 'en', label: 'English' },
+          ]}
+        />
+        {lmStudioAvailable && (
+          <ToggleGroup
+            label="Modelo IA"
+            value={provider}
+            onChange={(v) => setProvider(v as LlmProviderName)}
+            disabled={isGenerating}
+            options={[
+              { value: 'gemini', label: 'Gemini' },
+              { value: 'lm-studio', label: 'LM Studio' },
+            ]}
+          />
+        )}
+      </div>
+
       {isGenerating ? (
         <div className="space-y-2">
           <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-4">
@@ -282,6 +315,43 @@ function Tooltip({ text }: { text: string }) {
         {text}
       </span>
     </span>
+  )
+}
+
+function ToggleGroup({
+  label,
+  value,
+  onChange,
+  disabled,
+  options,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  disabled: boolean
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-4 whitespace-nowrap">{label}</span>
+      <div className="flex border border-rule">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(opt.value)}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors duration-100 disabled:opacity-40 ${
+              value === opt.value
+                ? 'bg-ink text-white'
+                : 'bg-white text-ink-4 hover:bg-paper hover:text-ink'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 

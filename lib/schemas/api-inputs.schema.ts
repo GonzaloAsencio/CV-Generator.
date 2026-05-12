@@ -16,6 +16,8 @@ export const UploadInputSchema = z.object({
 export const GenerateInputSchema = z.object({
   jobOffer: z.string().min(100, 'Job offer must be at least 100 characters'),
   company: CompanySchema,
+  language: z.enum(['es', 'en']).optional(),
+  provider: z.enum(['gemini', 'lm-studio']).optional(),
 })
 
 export const SpeechInputSchema = z.object({
@@ -23,6 +25,9 @@ export const SpeechInputSchema = z.object({
   company: CompanySchema,
   generatedCvId: z.string().uuid().optional(),
 })
+
+export type CvLanguage = 'es' | 'en'
+export type LlmProviderName = 'gemini' | 'lm-studio'
 
 export type CompanyInput = z.infer<typeof CompanySchema>
 export type GenerateInput = z.infer<typeof GenerateInputSchema>

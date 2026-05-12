@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const first = validation.error.issues[0]
     return err('VALIDATION_ERROR', first.message, 400)
   }
-  const { jobOffer, company } = validation.data
+  const { jobOffer, company, language, provider } = validation.data
 
   // Fetch CV text and personal info from profile
   const { data: profile } = await supabase
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   // Run use case
   let result: Awaited<ReturnType<ReturnType<typeof createGenerateTailoredCvUseCase>['execute']>>
   try {
-    result = await createGenerateTailoredCvUseCase().execute({
+    result = await createGenerateTailoredCvUseCase(provider).execute({
       userId: user.id,
       cvText,
       jobOffer,
@@ -99,6 +99,7 @@ export async function POST(request: Request) {
       idempotencyKey,
       personalInfo,
       profileData,
+      language,
     })
   } catch (e) {
     if (e instanceof NoCvUploadedError) {

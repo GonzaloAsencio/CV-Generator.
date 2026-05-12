@@ -63,6 +63,7 @@ export function buildHarvardUserPrompt(
   company: CompanySnapshot,
   jobOffer: string,
   explicit?: Partial<ParsedPersonalInfo>,
+  language?: 'es' | 'en',
 ): string {
   const parsed = parsePersonalInfo(cvText)
   const p = {
@@ -86,7 +87,11 @@ export function buildHarvardUserPrompt(
     `======================================`,
   ].join('\n')
 
-  return `${personalBlock}
+  const langOverride = language
+    ? `\n⚠️ IDIOMA FORZADO: Generá title, summary y highlights ÚNICAMENTE en ${language === 'en' ? 'INGLÉS (English)' : 'ESPAÑOL'}. Ignorá el idioma del CV y de la oferta — el usuario eligió este idioma explícitamente.\n`
+    : ''
+
+  return `${langOverride}${personalBlock}
 
 ### CV COMPLETO DEL CANDIDATO (para experiencia, educación, skills):
 ${cvText}
@@ -109,6 +114,7 @@ export function buildStructuredUserPrompt(
   company: CompanySnapshot,
   jobOffer: string,
   explicit?: Partial<ParsedPersonalInfo>,
+  language?: 'es' | 'en',
 ): string {
   const p = {
     name:     explicit?.name,
@@ -156,7 +162,11 @@ export function buildStructuredUserPrompt(
     ? profileData.certifications.map(c => `  - ${c}`).join('\n')
     : '(sin certificaciones)'
 
-  return `${personalBlock}
+  const langOverride = language
+    ? `\n⚠️ IDIOMA FORZADO: Generá title, summary y highlights ÚNICAMENTE en ${language === 'en' ? 'INGLÉS (English)' : 'ESPAÑOL'}. Ignorá el idioma del CV y de la oferta — el usuario eligió este idioma explícitamente.\n`
+    : ''
+
+  return `${langOverride}${personalBlock}
 
 === EXPERIENCIA LABORAL (⚠️ company/title/location/period son FIJOS — NO modificar) ===
 ${expBlock}
@@ -190,7 +200,9 @@ INSTRUCCIONES:
 1. Copiá personal.* textualmente desde DATOS PERSONALES.
 2. Generá "title" y "summary" orientados a esta oferta (máx 600 caracteres el summary).
 3. Generá EXACTAMENTE ${profileData.experience.length} entradas de experiencia en el MISMO ORDEN. Reescribí los highlights para destacar lo relevante, pero copiá company/title/location/period textualmente de cada entrada [N].
-4. Copiá educación, skills, idiomas y certificaciones textualmente sin cambios.
+4. ${language === 'en'
+  ? 'Traducí al inglés: nombres de carreras/títulos (degree), skills técnicas y blandas, y niveles de idioma. NO traduzcas: institution, company, location, year, ni nombres propios.'
+  : 'Copiá educación, skills, idiomas y certificaciones textualmente sin cambios.'}
 5. Respondé ÚNICAMENTE con JSON Harvard válido.`
 }
 
